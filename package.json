@@ -1,0 +1,29 @@
+{
+  "name": "sonicart-ecommerce",
+  "version": "1.0.0",
+  "description": "Modern ecommerce platform built with React, Node.js, PostgreSQL, and Stripe",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "setup-db": "cd backend && npm run setup-db"
+  },
+  "keywords": [
+    "ecommerce",
+    "react",
+    "nodejs",
+    "postgresql",
+    "stripe"
+  ],
+  "author": "SonicArt Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "cors": "^2.8.5"
+  }
+}
