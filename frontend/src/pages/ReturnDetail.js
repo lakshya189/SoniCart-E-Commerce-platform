@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, Package, CheckCircle, XCircle, Clock, 
-  RotateCcw, Truck, AlertCircle, Info, MessageSquare, X, AlertTriangle
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Clock, RotateCcw, AlertCircle, Info, X, AlertTriangle } from 'lucide-react';
 import api from '../utils/api';
 
 const ReturnDetail = () => {
@@ -20,7 +16,7 @@ const ReturnDetail = () => {
 
   useEffect(() => {
     fetchReturnRequest();
-  }, [id]);
+  }, [id, fetchReturnRequest]);
 
   const fetchReturnRequest = async () => {
     try {
