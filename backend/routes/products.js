@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { protect, authorize } = require('../middleware/auth');
-const { cacheMiddleware, invalidateCache } = require('../utils/cache');
+// Removed: const { cacheMiddleware, invalidateCache } = require('../utils/cache');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -17,7 +17,7 @@ router.get('/', [
   query('search').optional().isString(),
   query('sort').optional().isIn(['price_asc', 'price_desc', 'name_asc', 'name_desc', 'created_desc']),
   query('featured').optional().isBoolean(),
-], cacheMiddleware(1800), async (req, res) => {
+], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -270,7 +270,7 @@ router.post('/', protect, authorize('ADMIN'), [
     });
 
     // Invalidate product cache
-    await invalidateCache.products();
+    // Removed: await invalidateCache.products();
 
     res.status(201).json({
       success: true,
@@ -331,7 +331,7 @@ router.put('/:id', protect, authorize('ADMIN'), [
     });
 
     // Invalidate product cache
-    await invalidateCache.products();
+    // Removed: await invalidateCache.products();
 
     res.json({
       success: true,
@@ -364,7 +364,7 @@ router.delete('/:id', protect, authorize('ADMIN'), async (req, res) => {
     });
 
     // Invalidate product cache
-    await invalidateCache.products();
+    // Removed: await invalidateCache.products();
 
     res.json({
       success: true,

@@ -43,7 +43,6 @@
     "password-validator": "^5.3.0",
     "prisma": "^5.6.0",
     "react-helmet-async": "^2.0.5",
-    "redis": "^5.6.0",
     "sharp": "^0.34.3",
     "socket.io": "^4.7.5",
     "stripe": "^14.7.0",
