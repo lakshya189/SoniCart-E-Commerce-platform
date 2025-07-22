@@ -19,6 +19,9 @@ const { sanitizeInput, auditLog } = require('./middleware/security');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Fix for express-rate-limit on cloud hosts
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(sanitizeInput);
@@ -82,6 +85,11 @@ app.get('/health', (req, res) => {
     message: 'SonicArt API is running',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Add a welcome route for the root URL
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Welcome to the SonicArt' });
 });
 
 // API routes
