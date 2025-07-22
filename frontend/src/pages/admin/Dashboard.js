@@ -203,16 +203,16 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600 text-lg">Overview of your store performance</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1 sm:mb-2">Dashboard</h1>
+          <p className="text-gray-600 text-base sm:text-lg">Overview of your store performance</p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
+            className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm w-full sm:w-auto"
           >
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
@@ -222,7 +222,7 @@ const Dashboard = () => {
           <button
             onClick={handleExport}
             disabled={exportLoading}
-            className="flex items-center px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all duration-200"
+            className="flex items-center justify-center px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:bg-gray-400 shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto"
           >
             <Download className="h-4 w-4 mr-2" />
             {exportLoading ? 'Exporting...' : 'Export'}

@@ -1,733 +1,384 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Download, DollarSign, Calendar, User, Package, Plus, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Download, Box, ListFilter, Tag, Layers, PackageCheck } from 'lucide-react';
 import api from '../../utils/api';
-import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
-const AdminProducts = () => {
+const Products = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [deletingProduct, setDeletingProduct] = useState(null);
-  const [form, setForm] = useState({ 
-    name: '', 
-    description: '', 
-    price: '', 
-    stock: '', 
-    sku: '', 
+  const [addForm, setAddForm] = useState({
+    name: '',
     categoryId: '',
-    images: [''], 
-    isActive: true 
+    price: '',
+    stock: '',
+    status: 'Active',
   });
-  const [formErrors, setFormErrors] = useState({});
-  const [actionLoading, setActionLoading] = useState(false);
-  
-  // Search and filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [stockFilter, setStockFilter] = useState('');
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [bulkAction, setBulkAction] = useState('');
+  const [addFormErrors, setAddFormErrors] = useState({});
+  const [addLoading, setAddLoading] = useState(false);
+  const [addImages, setAddImages] = useState([]);
 
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [catRes, prodRes] = await Promise.all([
+          api.get('/categories'),
+          api.get('/products'),
+        ]);
+        setCategories(catRes.data.data || []);
+        setProducts(prodRes.data.data || []);
+      } catch (err) {
+        setError('Failed to load products. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const response = await api.get('/products');
-      setProducts(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await api.get('/categories');
-      setCategories(response.data.data || []);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-
-  // Filter products based on search and filters
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = !categoryFilter || product.categoryId === categoryFilter;
-    
-    const matchesStock = !stockFilter || 
-      (stockFilter === 'low' && product.stock <= 10) ||
-      (stockFilter === 'out' && product.stock === 0) ||
-      (stockFilter === 'in' && product.stock > 10);
-    
-    return matchesSearch && matchesCategory && matchesStock;
-  });
-
   const openAddModal = () => {
-    setForm({ 
-      name: '', 
-      description: '', 
-      price: '', 
-      stock: '', 
-      sku: '', 
-      categoryId: '',
-      images: [''], 
-      isActive: true 
-    });
-    setFormErrors({});
+    setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active' });
+    setAddFormErrors({});
+    setAddImages([]);
     setShowAddModal(true);
   };
-
   const closeAddModal = () => setShowAddModal(false);
 
-  const openEditModal = (product) => {
-    setEditingProduct(product);
-    setForm({
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      stock: product.stock,
-      sku: product.sku || '',
-      categoryId: product.categoryId || '',
-      images: product.images || [''],
-      isActive: product.isActive,
-    });
-    setFormErrors({});
-    setShowEditModal(true);
+  const handleAddFormChange = (field, value) => {
+    setAddForm(prev => ({ ...prev, [field]: value }));
+    setAddFormErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const closeEditModal = () => setShowEditModal(false);
-
-  const openDeleteModal = (product) => {
-    setDeletingProduct(product);
-    setShowDeleteModal(true);
+  const handleAddImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    setAddImages(files);
   };
 
-  const closeDeleteModal = () => setShowDeleteModal(false);
-
-  const handleFormChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    setFormErrors(prev => ({ ...prev, [field]: '' }));
-  };
-
-  const validateForm = () => {
+  const validateAddForm = () => {
     const errs = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
-    if (!form.description.trim()) errs.description = 'Description is required';
-    if (!form.price || isNaN(form.price) || Number(form.price) < 0) errs.price = 'Valid price required';
-    if (!form.stock || isNaN(form.stock) || Number(form.stock) < 0) errs.stock = 'Valid stock required';
-    if (!form.categoryId) errs.categoryId = 'Category is required';
-    if (!form.images[0]) errs.images = 'At least one image URL required';
-    setFormErrors(errs);
+    if (!addForm.name.trim()) errs.name = 'Product name is required';
+    if (!addForm.categoryId) errs.categoryId = 'Category is required';
+    if (!addForm.price || isNaN(addForm.price)) errs.price = 'Valid price is required';
+    if (!addForm.stock || isNaN(addForm.stock)) errs.stock = 'Valid stock is required';
+    if (!addForm.status) errs.status = 'Status is required';
+    if (addImages.length === 0) errs.images = 'At least one image is required';
+    setAddFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-    setActionLoading(true);
+    if (!validateAddForm()) return;
+    setAddLoading(true);
     try {
-      await api.post('/products', { 
-        ...form, 
-        price: Number(form.price), 
-        stock: Number(form.stock), 
-        images: [form.images[0]] 
+      const formData = new FormData();
+      formData.append('name', addForm.name);
+      formData.append('categoryId', addForm.categoryId);
+      formData.append('price', parseFloat(addForm.price));
+      formData.append('stock', parseInt(addForm.stock, 10));
+      formData.append('status', addForm.status);
+      addImages.forEach((img, idx) => {
+        formData.append('images', img);
       });
-      toast.success('Product added');
-      fetchProducts();
-      closeAddModal();
-    } catch (error) {
-      toast.error('Failed to add product');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    setActionLoading(true);
-    try {
-      await api.put(`/products/${editingProduct.id}`, { 
-        ...form, 
-        price: Number(form.price), 
-        stock: Number(form.stock), 
-        images: [form.images[0]] 
+      await api.post('/products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('Product updated');
-      fetchProducts();
-      closeEditModal();
-    } catch (error) {
-      toast.error('Failed to update product');
+      setShowAddModal(false);
+      setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active' });
+      setAddFormErrors({});
+      setAddImages([]);
+      // Refresh products
+      setLoading(true);
+      const prodRes = await api.get('/products');
+      setProducts(prodRes.data.data || []);
+    } catch (err) {
+      setAddFormErrors({ api: 'Failed to add product' });
     } finally {
-      setActionLoading(false);
+      setAddLoading(false);
+      setLoading(false);
     }
   };
-
-  const handleDelete = async () => {
-    setActionLoading(true);
-    try {
-      await api.delete(`/products/${deletingProduct.id}`);
-      toast.success('Product deleted');
-      fetchProducts();
-      closeDeleteModal();
-    } catch (error) {
-      toast.error('Failed to delete product');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleBulkAction = async () => {
-    if (!bulkAction || selectedProducts.length === 0) return;
-    
-    setActionLoading(true);
-    try {
-      if (bulkAction === 'delete') {
-        await Promise.all(selectedProducts.map(id => api.delete(`/products/${id}`)));
-        toast.success(`${selectedProducts.length} products deleted`);
-      } else if (bulkAction === 'activate') {
-        await Promise.all(selectedProducts.map(id => api.put(`/products/${id}`, { isActive: true })));
-        toast.success(`${selectedProducts.length} products activated`);
-      } else if (bulkAction === 'deactivate') {
-        await Promise.all(selectedProducts.map(id => api.put(`/products/${id}`, { isActive: false })));
-        toast.success(`${selectedProducts.length} products deactivated`);
-      }
-      setSelectedProducts([]);
-      setBulkAction('');
-      fetchProducts();
-    } catch (error) {
-      toast.error('Bulk action failed');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      setSelectedProducts(filteredProducts.map(p => p.id));
-    } else {
-      setSelectedProducts([]);
-    }
-  };
-
-  const handleSelectProduct = (productId, checked) => {
-    if (checked) {
-      setSelectedProducts(prev => [...prev, productId]);
-    } else {
-      setSelectedProducts(prev => prev.filter(id => id !== productId));
-    }
-  };
-
-  const exportProducts = async () => {
-    try {
-      // Placeholder for export functionality
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Products exported successfully');
-    } catch (error) {
-      toast.error('Export failed');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2" aria-label="Admin Products Page">
+      {/* Breadcrumbs */}
+      <nav className="flex items-center text-sm text-gray-500 mb-1" aria-label="Breadcrumb">
+        <span className="mr-2">Admin</span>
+        <span className="mx-2">/</span>
+        <span className="font-medium text-gray-700">Products</span>
+      </nav>
+
+      {/* Page Title and Actions */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-1 gap-1">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manage Products</h1>
-          <p className="text-gray-600">Add, edit, and manage your product catalog</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-0.5">Manage Products</h1>
+          <p className="text-gray-500 text-xs">Add, edit, and manage your product catalog</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={exportProducts}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export
+        <div className="flex gap-2">
+          <button aria-label="Export Products" className="btn btn-secondary">
+            <Download className="h-4 w-4 mr-1" /> Export
           </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
+          <button aria-label="Add Product" className="btn btn-primary" onClick={openAddModal}>
+            <Plus className="h-4 w-4 mr-1" /> Add Product
           </button>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">All Categories</option>
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
-          
-          <select
-            value={stockFilter}
-            onChange={(e) => setStockFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">All Stock</option>
-                         <option value="low">Low Stock (&lt;=10)</option>
-            <option value="out">Out of Stock</option>
-            <option value="in">In Stock (&gt;10)</option>
-          </select>
-          
-          <div className="flex items-center space-x-2">
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Bulk Actions</option>
-              <option value="activate">Activate</option>
-              <option value="deactivate">Deactivate</option>
-              <option value="delete">Delete</option>
-            </select>
-            {bulkAction && selectedProducts.length > 0 && (
-              <button
-                onClick={handleBulkAction}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
-              >
-                {actionLoading ? 'Processing...' : 'Apply'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Products Table */}
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900">
-              Products ({filteredProducts.length})
-            </h2>
-            <div className="flex items-center space-x-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                  onChange={(e) => handleSelectAll(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Select All</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Select
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={selectedProducts.includes(product.id)}
-                      onChange={(e) => handleSelectProduct(product.id, e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img
-                        src={product.images?.[0] || '/placeholder.png'}
-                        alt={product.name}
-                        className="w-10 h-10 object-cover rounded"
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">SKU: {product.sku || 'N/A'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {product.category?.name || 'Uncategorized'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${product.price}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <span className="text-sm text-gray-900">{product.stock}</span>
-                      {product.stock <= 10 && (
-                        <AlertTriangle className="h-4 w-4 text-yellow-500 ml-2" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      product.isActive 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {product.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => openEditModal(product)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(product)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 
       {/* Add Product Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <motion.div 
+            className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Add Product</h2>
-              <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-600">&times;</button>
+              <h2 className="text-2xl font-bold text-gray-900">Add Product</h2>
+              <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
-            
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                  <select
-                    value={form.categoryId}
-                    onChange={(e) => handleFormChange('categoryId', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
-                  </select>
-                  {formErrors.categoryId && <p className="mt-1 text-sm text-red-600">{formErrors.categoryId}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.price}
-                    onChange={(e) => handleFormChange('price', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.price && <p className="mt-1 text-sm text-red-600">{formErrors.price}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock *</label>
-                  <input
-                    type="number"
-                    value={form.stock}
-                    onChange={(e) => handleFormChange('stock', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.stock && <p className="mt-1 text-sm text-red-600">{formErrors.stock}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={(e) => handleFormChange('sku', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                  <input
-                    type="url"
-                    value={form.images[0]}
-                    onChange={(e) => handleFormChange('images', [e.target.value])}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.images && <p className="mt-1 text-sm text-red-600">{formErrors.images}</p>}
-                </div>
-              </div>
-              
+            {addFormErrors.api && <div className="text-red-500 mb-2 text-sm">{addFormErrors.api}</div>}
+            <form onSubmit={handleAddSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {formErrors.description && <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>}
-              </div>
-              
-              <div className="flex items-center">
+                <label className="block text-sm font-bold text-gray-700 mb-2">Product Name</label>
                 <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => handleFormChange('isActive', e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  type="text"
+                  value={addForm.name}
+                  onChange={e => handleAddFormChange('name', e.target.value)}
+                  className="input"
+                  placeholder="Enter product name"
                 />
-                <label className="ml-2 text-sm text-gray-700">Active</label>
+                {addFormErrors.name && <div className="text-red-500 text-xs mt-1">{addFormErrors.name}</div>}
               </div>
-              
-              <div className="flex justify-end space-x-3">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
+                <select
+                  value={addForm.categoryId}
+                  onChange={e => handleAddFormChange('categoryId', e.target.value)}
+                  className="input"
+                >
+                  <option value="">Select category</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                {addFormErrors.categoryId && <div className="text-red-500 text-xs mt-1">{addFormErrors.categoryId}</div>}
+              </div>
+              <div className="flex gap-2">
+                <div className="w-1/2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Price</label>
+                  <input
+                    type="number"
+                    value={addForm.price}
+                    onChange={e => handleAddFormChange('price', e.target.value)}
+                    className="input"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                  />
+                  {addFormErrors.price && <div className="text-red-500 text-xs mt-1">{addFormErrors.price}</div>}
+                </div>
+                <div className="w-1/2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Stock</label>
+                  <input
+                    type="number"
+                    value={addForm.stock}
+                    onChange={e => handleAddFormChange('stock', e.target.value)}
+                    className="input"
+                    placeholder="0"
+                    min="0"
+                  />
+                  {addFormErrors.stock && <div className="text-red-500 text-xs mt-1">{addFormErrors.stock}</div>}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
+                <select
+                  value={addForm.status}
+                  onChange={e => handleAddFormChange('status', e.target.value)}
+                  className="input"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+                {addFormErrors.status && <div className="text-red-500 text-xs mt-1">{addFormErrors.status}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Product Images</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleAddImagesChange}
+                  className="input"
+                />
+                {addFormErrors.images && <div className="text-red-500 text-xs mt-1">{addFormErrors.images}</div>}
+                {/* Preview selected images */}
+                {addImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {addImages.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={URL.createObjectURL(img)}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-16 h-16 object-cover rounded border"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-4">
                 <button
                   type="button"
                   onClick={closeAddModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  disabled={addLoading}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 font-medium shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  {actionLoading ? 'Adding...' : 'Add Product'}
+                  {addLoading ? 'Adding...' : 'Add Product'}
                 </button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </div>
       )}
 
-      {/* Edit Product Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Edit Product</h2>
-              <button onClick={closeEditModal} className="text-gray-400 hover:text-gray-600">&times;</button>
-            </div>
-            
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                  <select
-                    value={form.categoryId}
-                    onChange={(e) => handleFormChange('categoryId', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
-                  </select>
-                  {formErrors.categoryId && <p className="mt-1 text-sm text-red-600">{formErrors.categoryId}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.price}
-                    onChange={(e) => handleFormChange('price', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.price && <p className="mt-1 text-sm text-red-600">{formErrors.price}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock *</label>
-                  <input
-                    type="number"
-                    value={form.stock}
-                    onChange={(e) => handleFormChange('stock', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.stock && <p className="mt-1 text-sm text-red-600">{formErrors.stock}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-                  <input
-                    type="text"
-                    value={form.sku}
-                    onChange={(e) => handleFormChange('sku', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL *</label>
-                  <input
-                    type="url"
-                    value={form.images[0]}
-                    onChange={(e) => handleFormChange('images', [e.target.value])}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formErrors.images && <p className="mt-1 text-sm text-red-600">{formErrors.images}</p>}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {formErrors.description && <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>}
-              </div>
-              
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => handleFormChange('isActive', e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label className="ml-2 text-sm text-gray-700">Active</label>
-              </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                >
-                  {actionLoading ? 'Updating...' : 'Update Product'}
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* Filters in a card */}
+      <div className="card mb-2 flex flex-col md:flex-row md:items-center gap-1 p-2" role="region" aria-label="Product Filters">
+        <div className="relative w-full md:w-64">
+          <input
+            type="text"
+            placeholder="Search products..."
+            aria-label="Search products"
+            className="input pl-10 pr-3"
+          />
+          <ListFilter className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
         </div>
-      )}
+        <div className="relative w-full md:w-48">
+          <select
+            className="input pl-9 pr-3 appearance-none"
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+            aria-label="Filter by category"
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+          <Tag className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+        </div>
+        <div className="relative w-full md:w-40">
+          <select className="input pl-9 pr-3 appearance-none" aria-label="Filter by stock">
+            <option>All Stock</option>
+          </select>
+          <Layers className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+        </div>
+        <div className="relative w-full md:w-40">
+          <select className="input pl-9 pr-3 border-blue-500 bg-blue-50 text-blue-700 font-semibold appearance-none" aria-label="Bulk actions">
+            <option>Bulk Actions</option>
+          </select>
+          <PackageCheck className="absolute left-3 top-2.5 h-4 w-4 text-blue-400 pointer-events-none" />
+        </div>
+      </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Delete Product</h2>
-            <p className="mb-6 text-gray-600">
-              Are you sure you want to delete <strong>{deletingProduct?.name}</strong>? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={closeDeleteModal}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
-              >
-                {actionLoading ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
+      {/* Products Table in a card */}
+      <div className="card overflow-x-auto" role="region" aria-label="Products Table">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-6">
+            <svg className="animate-spin h-8 w-8 text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+            <span className="text-gray-500">Loading products...</span>
           </div>
-        </div>
-      )}
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-6">
+            <span className="text-red-500 font-medium mb-2">{error}</span>
+            <button onClick={() => window.location.reload()} className="btn btn-primary text-sm" aria-label="Retry loading products">Retry</button>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6">
+            <Box className="h-12 w-12 text-gray-300 mb-3" />
+            <h2 className="text-lg font-semibold mb-1 text-gray-700">No products found</h2>
+            <p className="mb-3 text-gray-500 text-sm">Get started by adding your first product.</p>
+            <button className="btn btn-primary" aria-label="Add Product">
+              <Plus className="h-4 w-4 mr-2" /> Add Product
+            </button>
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200" role="table">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider" scope="col">
+                  <input type="checkbox" aria-label="Select all products" />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer group" title="Sort by Product Name" scope="col" tabIndex={0} aria-label="Sort by Product Name">
+                  Product
+                  <span className="inline-block align-middle ml-1 text-gray-400 group-hover:text-blue-500">▲▼</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer group" title="Sort by Category" scope="col" tabIndex={0} aria-label="Sort by Category">
+                  Category
+                  <span className="inline-block align-middle ml-1 text-gray-400 group-hover:text-blue-500">▲▼</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer group" title="Sort by Price" scope="col" tabIndex={0} aria-label="Sort by Price">
+                  Price
+                  <span className="inline-block align-middle ml-1 text-gray-400 group-hover:text-blue-500">▲▼</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer group" title="Sort by Stock" scope="col" tabIndex={0} aria-label="Sort by Stock">
+                  Stock
+                  <span className="inline-block align-middle ml-1 text-gray-400 group-hover:text-blue-500">▲▼</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer group" title="Sort by Status" scope="col" tabIndex={0} aria-label="Sort by Status">
+                  Status
+                  <span className="inline-block align-middle ml-1 text-gray-400 group-hover:text-blue-500">▲▼</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider" scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {products.map((product, idx) => (
+                <tr key={product.id} className={idx % 2 === 0 ? 'bg-white hover:bg-gray-50 transition' : 'bg-gray-50 hover:bg-gray-100 transition'} tabIndex={0}>
+                  <td className="px-4 py-3">
+                    <input type="checkbox" aria-label={`Select product ${product.name}`} />
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900 flex items-center gap-2">
+                    {/* Product image/avatar here if available */}
+                    {product.name}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{product.category}</td>
+                  <td className="px-4 py-3 text-gray-700">${product.price}</td>
+                  <td className="px-4 py-3 text-gray-700">{product.stock}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${product.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {product.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 flex gap-2">
+                    <button className="btn btn-secondary text-xs flex items-center" title="Edit Product" aria-label={`Edit product ${product.name}`} tabIndex={0}>
+                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4 1a1 1 0 01-1.263-1.263l1-4a4 4 0 01.828-1.414z" /></svg>
+                      Edit
+                    </button>
+                    <button className="btn btn-danger text-xs flex items-center" title="Delete Product" aria-label={`Delete product ${product.name}`} tabIndex={0}>
+                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 };
 
-export default AdminProducts; 
+export default Products; 
