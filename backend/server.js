@@ -13,6 +13,7 @@ const cartRoutes = require('./routes/cart');
 const paymentRoutes = require('./routes/payments');
 const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
+const adminRoutes = require('./routes/admin');
 const { errorHandler } = require('./middleware/errorHandler');
 const { sanitizeInput, auditLog } = require('./middleware/security');
 
@@ -100,6 +101,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
