@@ -12,7 +12,8 @@
     "setup-db": "prisma migrate dev && prisma db seed",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "seed": "node prisma/seed.js"
   },
   "keywords": [
     "nodejs",

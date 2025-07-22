@@ -1,3 +1,4 @@
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
@@ -5,6 +6,21 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
+
+  // Seed categories
+  const categories = [
+    { name: 'Electronics', slug: 'electronics', description: 'All electronic items' },
+    { name: 'Households', slug: 'households', description: 'Household products' },
+    { name: 'Toys', slug: 'toys', description: 'Toys and games' },
+    { name: 'Gifting', slug: 'gifting', description: 'Gifting products and ideas' },
+  ];
+  for (const cat of categories) {
+    await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: {},
+      create: cat,
+    });
+  }
 
   // Create admin user
   const hashedPassword = await bcrypt.hash('admin123', 12);
@@ -19,50 +35,6 @@ async function main() {
       role: 'ADMIN',
     },
   });
-
-  // Create categories
-  const categories = await Promise.all([
-    prisma.category.upsert({
-      where: { slug: 'electronics' },
-      update: {},
-      create: {
-        name: 'Electronics',
-        description: 'Latest electronic gadgets and devices',
-        slug: 'electronics',
-        image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400',
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'clothing' },
-      update: {},
-      create: {
-        name: 'Clothing',
-        description: 'Fashion and apparel for all seasons',
-        slug: 'clothing',
-        image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400',
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'home-garden' },
-      update: {},
-      create: {
-        name: 'Home & Garden',
-        description: 'Everything for your home and garden',
-        slug: 'home-garden',
-        image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
-      },
-    }),
-    prisma.category.upsert({
-      where: { slug: 'sports' },
-      update: {},
-      create: {
-        name: 'Sports & Outdoors',
-        description: 'Sports equipment and outdoor gear',
-        slug: 'sports',
-        image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
-      },
-    }),
-  ]);
 
   // Create products
   const products = await Promise.all([
