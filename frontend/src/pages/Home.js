@@ -155,7 +155,9 @@ const Home = () => {
                     )}
                     <div className="p-4">
                       <h3 className="font-semibold text-gray-900 mb-1">{category.name}</h3>
-                      <p className="text-sm text-gray-600">{category._count.products} products</p>
+                      <p className="text-sm text-gray-600">
+                        {category._count?.products || 0} products
+                      </p>
                     </div>
                   </Link>
                 </motion.div>
@@ -206,7 +208,9 @@ const Home = () => {
                   
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">{product.category.name}</span>
+                      <span className="text-sm text-gray-500">
+                        {product.category?.name || 'Uncategorized'}
+                      </span>
                       {product.averageRating > 0 && (
                         <div className="flex items-center space-x-1">
                           <Star className="h-4 w-4 text-yellow-400 fill-current" />

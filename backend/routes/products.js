@@ -3,9 +3,23 @@ const { body, validationResult, query } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { protect, authorize } = require('../middleware/auth');
 // Removed: const { cacheMiddleware, invalidateCache } = require('../utils/cache');
+const multer = require('multer');
+const path = require('path');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Set up multer storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, '../uploads/'));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -199,51 +213,24 @@ router.get('/:id', async (req, res) => {
 // @desc    Create product
 // @route   POST /api/products
 // @access  Private/Admin
-router.post('/', protect, authorize('ADMIN'), [
-  body('name').trim().notEmpty().withMessage('Product name is required'),
-  body('description').trim().notEmpty().withMessage('Product description is required'),
-  body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-  body('categoryId').notEmpty().withMessage('Category is required'),
-  body('stock').isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
-  body('sku').optional().isString(),
-  body('images').isArray().withMessage('Images must be an array'),
-  body('isFeatured').optional().isBoolean(),
-], async (req, res) => {
+router.post('/', protect, authorize('ADMIN'), upload.array('images', 5), async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
+    // Parse form fields
+    const { name, description, price, comparePrice, categoryId, stock, sku, weight, dimensions, isFeatured } = req.body;
+    // Validate required fields
+    if (!name || !description || !price || !categoryId || !stock) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
-
-    const {
-      name,
-      description,
-      price,
-      comparePrice,
-      categoryId,
-      stock,
-      sku,
-      images,
-      weight,
-      dimensions,
-      isFeatured = false,
-    } = req.body;
-
     // Check if category exists
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
     if (!category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category not found',
-      });
+      return res.status(400).json({ success: false, message: 'Category not found' });
     }
-
+    // Handle images
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+    }
     const product = await prisma.product.create({
       data: {
         name,
@@ -253,10 +240,10 @@ router.post('/', protect, authorize('ADMIN'), [
         categoryId,
         stock: parseInt(stock),
         sku,
-        images,
+        images: imageUrls,
         weight: weight ? parseFloat(weight) : null,
         dimensions,
-        isFeatured,
+        isFeatured: isFeatured === 'true' || isFeatured === true,
       },
       include: {
         category: {
@@ -268,20 +255,10 @@ router.post('/', protect, authorize('ADMIN'), [
         },
       },
     });
-
-    // Invalidate product cache
-    // Removed: await invalidateCache.products();
-
-    res.status(201).json({
-      success: true,
-      data: product,
-    });
+    res.status(201).json({ success: true, data: product });
   } catch (error) {
     console.error('Create product error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

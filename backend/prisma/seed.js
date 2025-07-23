@@ -1,3 +1,4 @@
+require('dotenv').config({ path: '../.env' });
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
@@ -14,12 +15,16 @@ async function main() {
     { name: 'Toys', slug: 'toys', description: 'Toys and games' },
     { name: 'Gifting', slug: 'gifting', description: 'Gifting products and ideas' },
   ];
+  
+  // First create all categories and store them
+  const createdCategories = [];
   for (const cat of categories) {
-    await prisma.category.upsert({
+    const created = await prisma.category.upsert({
       where: { slug: cat.slug },
       update: {},
       create: cat,
     });
+    createdCategories.push(created);
   }
 
   // Create admin user
@@ -50,7 +55,9 @@ async function main() {
           'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400',
           'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400',
         ],
-        categoryId: categories[0].id,
+        category: {
+          connect: { id: createdCategories[0].id }
+        },
         stock: 25,
         sku: 'LAPTOP-001',
         weight: 2.5,
@@ -70,7 +77,9 @@ async function main() {
           'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400',
           'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400',
         ],
-        categoryId: categories[0].id,
+        category: {
+          connect: { id: createdCategories[0].id }
+        },
         stock: 50,
         sku: 'PHONE-001',
         weight: 0.2,
@@ -90,7 +99,9 @@ async function main() {
           'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
           'https://images.unsplash.com/photo-1503341504253-dff4815485f1?w=400',
         ],
-        categoryId: categories[1].id,
+        category: {
+          connect: { id: createdCategories[1].id }
+        },
         stock: 100,
         sku: 'SHIRT-001',
         weight: 0.3,
@@ -110,7 +121,9 @@ async function main() {
           'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400',
           'https://images.unsplash.com/photo-1592078615290-033ee584e267?w=400',
         ],
-        categoryId: categories[2].id,
+        category: {
+          connect: { id: createdCategories[2].id }
+        },
         stock: 15,
         sku: 'CHAIR-001',
         weight: 15.0,
@@ -130,7 +143,9 @@ async function main() {
           'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400',
           'https://images.unsplash.com/photo-1552318965-6e6be7484ada?w=400',
         ],
-        categoryId: categories[3].id,
+        category: {
+          connect: { id: createdCategories[3].id }
+        },
         stock: 30,
         sku: 'BALL-001',
         weight: 0.5,

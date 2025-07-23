@@ -16,6 +16,7 @@ const Products = () => {
     price: '',
     stock: '',
     status: 'Active',
+    description: '',
   });
   const [addFormErrors, setAddFormErrors] = useState({});
   const [addLoading, setAddLoading] = useState(false);
@@ -42,7 +43,7 @@ const Products = () => {
   }, []);
 
   const openAddModal = () => {
-    setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active' });
+    setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active', description: '' });
     setAddFormErrors({});
     setAddImages([]);
     setShowAddModal(true);
@@ -75,29 +76,52 @@ const Products = () => {
     e.preventDefault();
     if (!validateAddForm()) return;
     setAddLoading(true);
+    
     try {
       const formData = new FormData();
+      
+      // Append all form fields
       formData.append('name', addForm.name);
+      formData.append('description', addForm.description || '');
       formData.append('categoryId', addForm.categoryId);
       formData.append('price', parseFloat(addForm.price));
       formData.append('stock', parseInt(addForm.stock, 10));
       formData.append('status', addForm.status);
-      addImages.forEach((img, idx) => {
-        formData.append('images', img);
+      
+      // Append all images
+      addImages.forEach((image, index) => {
+        formData.append(`images`, image);
       });
+      
+      // Send to your backend endpoint
       await api.post('/products', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
+      
+      // Reset form and close modal
       setShowAddModal(false);
-      setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active' });
+      setAddForm({ 
+        name: '', 
+        categoryId: '', 
+        price: '', 
+        stock: '', 
+        status: 'Active',
+        description: '' 
+      });
       setAddFormErrors({});
       setAddImages([]);
+      
       // Refresh products
       setLoading(true);
       const prodRes = await api.get('/products');
       setProducts(prodRes.data.data || []);
     } catch (err) {
-      setAddFormErrors({ api: 'Failed to add product' });
+      console.error('Error adding product:', err);
+      setAddFormErrors({ 
+        api: err.response?.data?.message || 'Failed to add product. Please try again.' 
+      });
     } finally {
       setAddLoading(false);
       setLoading(false);
@@ -209,25 +233,73 @@ const Products = () => {
                 {addFormErrors.status && <div className="text-red-500 text-xs mt-1">{addFormErrors.status}</div>}
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Product Images</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAddImagesChange}
-                  className="input"
+                <label className="block text-sm font-bold text-gray-700 mb-2">Description</label>
+                <textarea
+                  value={addForm.description}
+                  onChange={e => handleAddFormChange('description', e.target.value)}
+                  className="input min-h-[100px]"
+                  placeholder="Enter product description"
                 />
+                {addFormErrors.description && <div className="text-red-500 text-xs mt-1">{addFormErrors.description}</div>}
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Product Images</label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col w-full h-32 border-2 border-dashed hover:bg-gray-50 hover:border-blue-300 group">
+                    <div className="flex flex-col items-center justify-center pt-7">
+                      <svg
+                        className="w-10 h-10 text-gray-400 group-hover:text-blue-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        ></path>
+                      </svg>
+                      <p className="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-blue-400">
+                        {addImages.length > 0 
+                          ? `${addImages.length} image${addImages.length > 1 ? 's' : ''} selected` 
+                          : 'Click to select images'}
+                      </p>
+                    </div>
+                    <input
+                      type="file"
+                      className="opacity-0"
+                      multiple
+                      accept="image/*"
+                      onChange={handleAddImagesChange}
+                    />
+                  </label>
+                </div>
                 {addFormErrors.images && <div className="text-red-500 text-xs mt-1">{addFormErrors.images}</div>}
                 {/* Preview selected images */}
                 {addImages.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {addImages.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={URL.createObjectURL(img)}
-                        alt={`Preview ${idx + 1}`}
-                        className="w-16 h-16 object-cover rounded border"
-                      />
+                      <div key={idx} className="relative group">
+                        <img
+                          src={URL.createObjectURL(img)}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-16 h-16 object-cover rounded border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newImages = [...addImages];
+                            newImages.splice(idx, 1);
+                            setAddImages(newImages);
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -353,7 +425,9 @@ const Products = () => {
                     {/* Product image/avatar here if available */}
                     {product.name}
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{product.category}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {product.category?.name || 'Uncategorized'}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">${product.price}</td>
                   <td className="px-4 py-3 text-gray-700">{product.stock}</td>
                   <td className="px-4 py-3">
@@ -363,7 +437,7 @@ const Products = () => {
                   </td>
                   <td className="px-4 py-3 flex gap-2">
                     <button className="btn btn-secondary text-xs flex items-center" title="Edit Product" aria-label={`Edit product ${product.name}`} tabIndex={0}>
-                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4 1a1 1 0 01-1.263-1.263l1-4a4 4 0 01.828-1.414z" /></svg>
+                      <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4 1a4 4 0 01-1.414-.828z" /></svg>
                       Edit
                     </button>
                     <button className="btn btn-danger text-xs flex items-center" title="Delete Product" aria-label={`Delete product ${product.name}`} tabIndex={0}>
