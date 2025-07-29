@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { Search, Filter, Grid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Grid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
+import { Filter } from 'lucide-react';
 import api from '../utils/api';
 import { io } from 'socket.io-client';
 import { Helmet } from 'react-helmet-async';
@@ -24,25 +27,8 @@ const Products = () => {
   const currentSort = searchParams.get('sort') || 'created_desc';
   const currentLimit = parseInt(searchParams.get('limit')) || 12;
 
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-    // Socket.io for real-time stock updates
-    const socket = io(SOCKET_URL);
-    socket.on('productStockUpdated', ({ productId, stock }) => {
-      setProducts((prev) => prev.map(p => p.id === productId ? { ...p, stock } : p));
-    });
-    return () => {
-      socket.disconnect();
-    };
-  }, [currentPage, currentSearch, currentCategory, currentSort, currentLimit]);
-
-  // Set search input when URL changes
-  useEffect(() => {
-    setSearchInput(currentSearch);
-  }, [currentSearch]);
-
-  const fetchProducts = async () => {
+  // Define fetchProducts and fetchCategories first
+  const fetchProducts = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -61,16 +47,41 @@ const Products = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, currentLimit, currentSort, currentSearch, currentCategory]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = React.useCallback(async () => {
     try {
       const response = await api.get('/categories');
       setCategories(response.data.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, []);
+
+  // Then define fetchData that uses them
+  const fetchData = React.useCallback(async () => {
+    await fetchProducts();
+    await fetchCategories();
+  }, [fetchProducts, fetchCategories]);
+
+  useEffect(() => {
+    fetchData();
+    // Socket.io for real-time stock updates
+    const socket = io(SOCKET_URL);
+    socket.on('productStockUpdated', ({ productId, stock }) => {
+      setProducts((prev) => prev.map(p => p.id === productId ? { ...p, stock } : p));
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchData]);
+
+  // Set search input when URL changes
+  useEffect(() => {
+    setSearchInput(currentSearch);
+  }, [currentSearch]);
+
+
 
   const handleSearch = (searchTerm) => {
     const newParams = new URLSearchParams(searchParams);

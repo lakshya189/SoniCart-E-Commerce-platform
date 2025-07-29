@@ -5,6 +5,7 @@ import { CreditCard, Truck, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
+// eslint-disable-next-line no-unused-vars
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import toast from 'react-hot-toast';
 import { Helmet } from 'react-helmet-async';
@@ -55,10 +56,12 @@ const Checkout = () => {
   const elements = useElements();
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentError, setPaymentError] = useState('');
-  const [, setPaymentSuccess] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [shippingErrors, setShippingErrors] = useState({});
   const [billingErrors, setBillingErrors] = useState({});
   const [apiError, setApiError] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [paymentMethod, setPaymentMethod] = useState('card'); // Only 'card' and 'cod'
 
   // Payment request functionality removed as it's not being used

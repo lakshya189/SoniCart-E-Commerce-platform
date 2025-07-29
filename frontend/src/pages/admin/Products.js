@@ -3,8 +3,12 @@ import { Plus, Download, Box, ListFilter, Tag, Layers, PackageCheck } from 'luci
 import api from '../../utils/api';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Products = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -22,8 +26,25 @@ const Products = () => {
   const [addFormErrors, setAddFormErrors] = useState({});
   const [addLoading, setAddLoading] = useState(false);
   const [addImages, setAddImages] = useState([]);
+  const [deleteLoading, setDeleteLoading] = useState({});
 
   useEffect(() => {
+    // Check if user is authenticated and has admin role
+    console.log('Auth check:', { isAuthenticated, user: user?.role });
+    
+    if (!isAuthenticated) {
+      console.log('Not authenticated, redirecting to login');
+      navigate('/login');
+      return;
+    }
+    
+    if (user && user.role !== 'ADMIN') {
+      console.log('Not admin, redirecting to home');
+      toast.error('Access denied. Admin privileges required.');
+      navigate('/');
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -41,7 +62,7 @@ const Products = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [isAuthenticated, user, navigate]);
 
   const openAddModal = () => {
     setAddForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active', description: '' });
@@ -202,6 +223,40 @@ const Products = () => {
       toast.error(errorMessage);
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId, productName) => {
+    if (!window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeleteLoading(prev => ({ ...prev, [productId]: true }));
+    
+    try {
+      await api.delete(`/products/${productId}`);
+      toast.success('Product deleted successfully!');
+      
+      // Remove product from state
+      setProducts(prev => prev.filter(p => p.id !== productId));
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      
+      let errorMessage = 'Failed to delete product. Please try again.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Product not found.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setDeleteLoading(prev => ({ ...prev, [productId]: false }));
     }
   };
 
@@ -574,9 +629,16 @@ const Products = () => {
                       <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4 1a4 4 0 01-1.414-.828z" /></svg>
                       Edit
                     </button>
-                    <button className="btn btn-danger text-xs flex items-center" title="Delete Product" aria-label={`Delete product ${product.name}`} tabIndex={0}>
+                    <button 
+                      className="btn btn-danger text-xs flex items-center" 
+                      title="Delete Product" 
+                      aria-label={`Delete product ${product.name}`} 
+                      tabIndex={0}
+                      onClick={() => handleDeleteProduct(product.id, product.name)}
+                      disabled={deleteLoading[product.id]}
+                    >
                       <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
-                      Delete
+                      {deleteLoading[product.id] ? 'Deleting...' : 'Delete'}
                     </button>
                   </td>
                 </tr>

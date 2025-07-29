@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { Star, ShoppingCart, Heart, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
+import { Heart, Share2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
@@ -34,16 +37,23 @@ const ProductDetail = () => {
   const userReview = user ? reviews.find(r => r.user.id === user.id) : null;
 
   useEffect(() => {
-    fetchProduct();
-    fetchReviews();
+    const loadData = async () => {
+      await fetchProduct();
+      await fetchReviews();
+    };
+    
+    loadData();
+    
     // Socket.io for real-time stock updates
     const socket = io(SOCKET_URL);
     socket.on('productStockUpdated', ({ productId, stock }) => {
       setProduct((prev) => prev && prev.id === productId ? { ...prev, stock } : prev);
     });
+    
     return () => {
       socket.disconnect();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchProduct = async () => {
