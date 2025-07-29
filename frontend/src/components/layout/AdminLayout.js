@@ -6,7 +6,6 @@ import {
   Package, 
   Users, 
   ShoppingCart, 
-  Settings, 
   LogOut,
   Menu,
   X,
@@ -71,7 +70,7 @@ const AdminLayout = ({ children }) => {
             {/* Hamburger menu for mobile */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="sm:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
               aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
@@ -86,8 +85,41 @@ const AdminLayout = ({ children }) => {
                 <p className="text-xs text-slate-400">SonicArt Management</p>
               </div>
             </div>
-            {/* Navigation links (desktop only) */}
-            <nav className="hidden md:flex items-center gap-2 ml-8" aria-label="Header navigation">
+            
+            {/* Mobile navigation (medium screens) */}
+            <nav className="hidden md:flex lg:hidden items-center gap-1 ml-4" aria-label="Mobile navigation">
+              {navigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`p-2 rounded-lg transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                    title={item.name}
+                  >
+                    <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  </Link>
+                );
+              })}
+            </nav>
+            
+            {/* Mobile breadcrumb indicator */}
+            <div className="hidden md:block lg:hidden ml-2">
+              <span className="text-xs text-slate-400">
+                {getBreadcrumbs().map((breadcrumb, index) => (
+                  <span key={breadcrumb.href}>
+                    {index > 0 && <ChevronRight className="h-3 w-3 inline mx-1" />}
+                    {breadcrumb.name}
+                  </span>
+                ))}
+              </span>
+            </div>
+            {/* Navigation links */}
+            <nav className="hidden lg:flex items-center gap-2 ml-8" aria-label="Header navigation">
               {navigation.map((item) => {
                 const isActive = location.pathname === item.href;
                 return (
@@ -113,8 +145,8 @@ const AdminLayout = ({ children }) => {
                 Back to Store
               </Link>
             </nav>
-            {/* Breadcrumbs (desktop only) */}
-            <nav className="hidden md:flex items-center space-x-2 ml-6" aria-label="Breadcrumb">
+            {/* Breadcrumbs */}
+            <nav className="hidden lg:flex items-center space-x-2 ml-6" aria-label="Breadcrumb">
               {getBreadcrumbs().map((breadcrumb, index) => (
                 <div key={breadcrumb.href} className="flex items-center">
                   {index > 0 && <ChevronRight className="h-4 w-4 text-slate-400 mx-2" />}
@@ -131,24 +163,39 @@ const AdminLayout = ({ children }) => {
                 </div>
               ))}
             </nav>
-            {/* User profile and logout (desktop only) */}
-            <div className="hidden md:flex items-center gap-4 ml-auto">
-              <div className="flex items-center gap-2">
+            {/* User profile and logout */}
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Mobile user info */}
+              <div className="lg:hidden flex items-center gap-2">
                 <UserCircle className="h-8 w-8 text-blue-400" />
-                <div className="text-white font-semibold text-sm">{user?.name || 'Admin User'}</div>
+                <span className="text-white font-semibold text-sm hidden md:block">{user?.name || 'Admin'}</span>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className="btn btn-danger flex items-center text-sm"
-              >
-                <LogOut className="h-5 w-5 mr-2" /> Logout
-              </button>
+              {/* Desktop user info */}
+              <div className="hidden lg:flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <UserCircle className="h-8 w-8 text-blue-400" />
+                  <div className="text-white font-semibold text-sm">{user?.name || 'Admin User'}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="btn btn-danger flex items-center text-sm"
+                >
+                  <LogOut className="h-5 w-5 mr-2" /> Logout
+                </button>
+              </div>
             </div>
           </div>
         </header>
         {/* Mobile menu drawer */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex">
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-60 flex md:hidden">
             <div className="w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 h-full shadow-2xl flex flex-col">
               <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
                 <div className="flex items-center gap-2">

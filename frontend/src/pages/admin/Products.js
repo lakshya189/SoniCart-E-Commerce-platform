@@ -123,6 +123,12 @@ const Products = () => {
     console.log('Files selected:', files.length);
     console.log('Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
     
+    // Check total limit
+    if (addImages.length + files.length > 5) {
+      toast.error(`Maximum 5 images allowed. You can add ${5 - addImages.length} more.`);
+      return;
+    }
+    
     // Simple validation
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
@@ -137,7 +143,12 @@ const Products = () => {
     });
     
     console.log('Valid files:', validFiles.length);
-    setAddImages(validFiles);
+    // Append to existing images instead of replacing
+    setAddImages(prev => [...prev, ...validFiles]);
+    
+    if (validFiles.length > 0) {
+      toast.success(`Added ${validFiles.length} image${validFiles.length > 1 ? 's' : ''}`);
+    }
   };
 
   const handleEditImagesChange = (e) => {
@@ -175,6 +186,12 @@ const Products = () => {
     console.log('Files dropped:', files.length);
     console.log('Dropped files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
     
+    // Check total limit
+    if (addImages.length + files.length > 5) {
+      toast.error(`Maximum 5 images allowed. You can add ${5 - addImages.length} more.`);
+      return;
+    }
+    
     // Simple validation
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
@@ -189,7 +206,12 @@ const Products = () => {
     });
     
     console.log('Valid dropped files:', validFiles.length);
-    setAddImages(validFiles);
+    // Append to existing images instead of replacing
+    setAddImages(prev => [...prev, ...validFiles]);
+    
+    if (validFiles.length > 0) {
+      toast.success(`Added ${validFiles.length} image${validFiles.length > 1 ? 's' : ''}`);
+    }
   };
 
   const validateAddForm = () => {
@@ -435,13 +457,14 @@ const Products = () => {
 
       {/* Add Product Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
           <motion.div 
-            className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-100"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-100"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
           >
+            <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Add Product</h2>
               <button onClick={closeAddModal} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
@@ -473,8 +496,8 @@ const Products = () => {
                 </select>
                 {addFormErrors.categoryId && <div className="text-red-500 text-xs mt-1">{addFormErrors.categoryId}</div>}
               </div>
-              <div className="flex gap-2">
-                <div className="w-1/2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Price</label>
                   <input
                     type="number"
@@ -487,7 +510,7 @@ const Products = () => {
                   />
                   {addFormErrors.price && <div className="text-red-500 text-xs mt-1">{addFormErrors.price}</div>}
                 </div>
-                <div className="w-1/2">
+                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Stock</label>
                   <input
                     type="number"
@@ -534,11 +557,16 @@ const Products = () => {
                     onChange={handleAddImagesChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     id="file-upload-input"
+                    disabled={addImages.length >= 5}
                   />
                   <div 
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-300 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      addImages.length >= 5 
+                        ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                        : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50 cursor-pointer'
+                    }`}
+                    onDragOver={addImages.length < 5 ? handleDragOver : undefined}
+                    onDrop={addImages.length < 5 ? handleDrop : undefined}
                   >
                     <svg
                       className="mx-auto h-12 w-12 text-gray-400"
@@ -556,18 +584,27 @@ const Products = () => {
                     </svg>
                     <p className="mt-2 text-sm text-gray-600">
                       {addImages.length > 0 
-                        ? `${addImages.length} image${addImages.length > 1 ? 's' : ''} selected` 
+                        ? `${addImages.length}/5 image${addImages.length > 1 ? 's' : ''} selected` 
                         : 'Click to select or drag and drop images here'
                       }
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Supports: JPG, PNG, WebP (max 10MB each)
+                      Supports: JPG, PNG, WebP (max 10MB each, up to 5 images)
                     </p>
                   </div>
                 </div>
                 
-                {/* Debug buttons */}
-                <div className="mt-2 space-x-2">
+                {/* Action buttons */}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {addImages.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAddImages([])}
+                      className="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                    >
+                      Remove All Images
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -611,7 +648,7 @@ const Products = () => {
                         Clear All
                       </button>
                     </div>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {addImages.map((img, idx) => (
                         <div key={idx} className="relative group">
                           <img
@@ -641,7 +678,7 @@ const Products = () => {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end space-x-4">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 sm:space-x-4">
                 <button
                   type="button"
                   onClick={closeAddModal}
@@ -658,6 +695,7 @@ const Products = () => {
                 </button>
               </div>
             </form>
+            </div>
           </motion.div>
         </div>
       )}
