@@ -1,74 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Clock, RotateCcw, AlertCircle, Info, X, AlertTriangle } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../utils/api';
 
 const ReturnDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [returnRequest, setReturnRequest] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(false);
+  const queryClient = useQueryClient();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [error, setError] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
-  useEffect(() => {
-    fetchReturnRequest();
-  }, [id, fetchReturnRequest]);
+  const { data: returnRequest, isLoading: isReturnLoading, error: returnError } = useQuery({
+    queryKey: ['returnRequest', id],
+    queryFn: async () => (await api.get(`/returns/${id}`)).data.data,
+  });
 
-  const fetchReturnRequest = async () => {
-    try {
-      const [returnRes, messagesRes] = await Promise.all([
-        api.get(`/returns/${id}`),
-        api.get(`/returns/${id}/messages`)
-      ]);
-      
-      setReturnRequest(returnRes.data.data);
-      setMessages(messagesRes.data.data || []);
-    } catch (error) {
-      console.error('Error fetching return request:', error);
-      setError('Failed to load return request details');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: messages, isLoading: areMessagesLoading } = useQuery({
+    queryKey: ['returnMessages', id],
+    queryFn: async () => (await api.get(`/returns/${id}/messages`)).data.data || [],
+  });
 
-  const handleCancelReturn = async () => {
-    if (!returnRequest || returnRequest.status !== 'PENDING') return;
-
-    setCancelling(true);
-    try {
-      await api.put(`/returns/${id}/cancel`);
-      setReturnRequest(prev => ({
-        ...prev,
-        status: 'CANCELLED'
-      }));
+  const cancelMutation = useMutation({
+    mutationFn: () => api.put(`/returns/${id}/cancel`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['returnRequest', id]);
       setShowCancelConfirm(false);
-    } catch (error) {
-      console.error('Error cancelling return:', error);
-      setError('Failed to cancel return request');
-    } finally {
-      setCancelling(false);
-    }
-  };
+    },
+    onError: (err) => {
+      console.error('Error cancelling return:', err);
+      // You can use react-hot-toast here for user feedback
+    },
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: (messageContent) => api.post(`/returns/${id}/messages`, { message: messageContent }),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['returnMessages', id], (oldMessages) => [...(oldMessages || []), res.data.data]);
+      setNewMessage('');
+    },
+    onError: (err) => {
+      console.error('Error sending message:', err);
+    },
+  });
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
-
-    try {
-      const response = await api.post(`/returns/${id}/messages`, {
-        message: newMessage.trim()
-      });
-      
-      setMessages(prev => [...prev, response.data.data]);
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setError('Failed to send message');
-    }
+    sendMessageMutation.mutate(newMessage.trim());
   };
 
   const getStatusInfo = (status) => {
@@ -120,7 +99,7 @@ const ReturnDetail = () => {
 
   const statusInfo = returnRequest ? getStatusInfo(returnRequest.status) : null;
 
-  if (loading) {
+  if (isReturnLoading || areMessagesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -128,13 +107,13 @@ const ReturnDetail = () => {
     );
   }
 
-  if (error || !returnRequest) {
+  if (returnError || !returnRequest) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error loading return request</h2>
-          <p className="text-gray-600 mb-6">{error || 'Return request not found'}</p>
+          <p className="text-gray-600 mb-6">{returnError?.message || 'Return request not found'}</p>
           <button
             onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700"
@@ -172,9 +151,9 @@ const ReturnDetail = () => {
                 <button
                   onClick={() => setShowCancelConfirm(true)}
                   className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md"
-                  disabled={cancelling}
+                  disabled={cancelMutation.isLoading}
                 >
-                  {cancelling ? 'Cancelling...' : 'Cancel Return'}
+                  {cancelMutation.isLoading ? 'Cancelling...' : 'Cancelling...'}
                 </button>
               )}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}>
@@ -276,7 +255,7 @@ const ReturnDetail = () => {
             {/* Messages */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Messages</h2>
-              <div className="space-y-4 max-h-96 overflow-y-auto pr-2 -mr-2">
+              <div className="space-y-4 max-h-96 overflow-y-auto pr-2 -mr-2 mb-4">
                 {messages.length > 0 ? (
                   messages.map((message) => (
                     <div
@@ -301,18 +280,18 @@ const ReturnDetail = () => {
                   <p className="text-gray-500 text-center py-4">No messages yet.</p>
                 )}
               </div>
-              <form onSubmit={handleSendMessage} className="mt-4 flex gap-2">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type your message..."
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={returnRequest.status === 'CANCELLED'}
+                  disabled={returnRequest.status === 'CANCELLED' || sendMessageMutation.isLoading}
                 />
                 <button
                   type="submit"
-                  disabled={!newMessage.trim() || returnRequest.status === 'CANCELLED'}
+                  disabled={!newMessage.trim() || returnRequest.status === 'CANCELLED' || sendMessageMutation.isLoading}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Send
@@ -401,16 +380,16 @@ const ReturnDetail = () => {
               <button
                 onClick={() => setShowCancelConfirm(false)}
                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={cancelling}
+                disabled={cancelMutation.isLoading}
               >
                 Keep Return
               </button>
               <button
-                onClick={handleCancelReturn}
+                onClick={() => cancelMutation.mutate()}
                 className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
-                disabled={cancelling}
+                disabled={cancelMutation.isLoading}
               >
-                {cancelling ? 'Cancelling...' : 'Cancel Return'}
+                {cancelMutation.isLoading ? 'Cancelling...' : 'Cancel Return'}
               </button>
             </div>
           </div>

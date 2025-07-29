@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Download, Box, ListFilter, Tag, Layers, PackageCheck } from 'lucide-react';
 import api from '../../utils/api';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -57,7 +58,54 @@ const Products = () => {
 
   const handleAddImagesChange = (e) => {
     const files = Array.from(e.target.files);
-    setAddImages(files);
+    console.log('Files selected:', files.length);
+    console.log('Files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    
+    // Simple validation
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 10MB)`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log('Valid files:', validFiles.length);
+    setAddImages(validFiles);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    console.log('Files dropped:', files.length);
+    console.log('Dropped files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    
+    // Simple validation
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 10MB)`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log('Valid dropped files:', validFiles.length);
+    setAddImages(validFiles);
   };
 
   const validateAddForm = () => {
@@ -67,6 +115,7 @@ const Products = () => {
     if (!addForm.price || isNaN(addForm.price)) errs.price = 'Valid price is required';
     if (!addForm.stock || isNaN(addForm.stock)) errs.stock = 'Valid stock is required';
     if (!addForm.status) errs.status = 'Status is required';
+    if (!addForm.description.trim()) errs.description = 'Description is required';
     if (addImages.length === 0) errs.images = 'At least one image is required';
     setAddFormErrors(errs);
     return Object.keys(errs).length === 0;
@@ -74,31 +123,44 @@ const Products = () => {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    if (!validateAddForm()) return;
+    console.log('Form submission started');
+    console.log('Form data:', addForm);
+    console.log('Images:', addImages.length);
+    
+    if (!validateAddForm()) {
+      console.log('Form validation failed');
+      return;
+    }
+    
     setAddLoading(true);
     
     try {
       const formData = new FormData();
       
       // Append all form fields
-      formData.append('name', addForm.name);
-      formData.append('description', addForm.description || '');
-      formData.append('categoryId', addForm.categoryId);
-      formData.append('price', parseFloat(addForm.price));
-      formData.append('stock', parseInt(addForm.stock, 10));
-      formData.append('status', addForm.status);
-      
-      // Append all images
-      addImages.forEach((image, index) => {
-        formData.append(`images`, image);
+      Object.entries(addForm).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value);
+          console.log('Added field:', key, value);
+        }
       });
       
-      // Send to your backend endpoint
+      // Append all images
+      addImages.forEach((file, index) => {
+        formData.append('images', file);
+        console.log('Added image:', index, file.name, file.size);
+      });
+
+      console.log('Submitting product with', addImages.length, 'images');
+      console.log('FormData entries:', Array.from(formData.entries()));
+
       await api.post('/products', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
+      toast.success('Product added successfully!');
       
       // Reset form and close modal
       setShowAddModal(false);
@@ -114,17 +176,32 @@ const Products = () => {
       setAddImages([]);
       
       // Refresh products
-      setLoading(true);
       const prodRes = await api.get('/products');
       setProducts(prodRes.data.data || []);
     } catch (err) {
       console.error('Error adding product:', err);
+      
+      let errorMessage = 'Failed to add product. Please try again.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response.data?.message || 'Invalid data provided.';
+      } else if (err.response?.status === 413) {
+        errorMessage = 'File too large. Please use smaller images.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
       setAddFormErrors({ 
-        api: err.response?.data?.message || 'Failed to add product. Please try again.' 
+        api: errorMessage
       });
+      
+      toast.error(errorMessage);
     } finally {
       setAddLoading(false);
-      setLoading(false);
     }
   };
 
@@ -244,63 +321,120 @@ const Products = () => {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Product Images</label>
-                <div className="flex items-center justify-center w-full">
-                  <label className="flex flex-col w-full h-32 border-2 border-dashed hover:bg-gray-50 hover:border-blue-300 group">
-                    <div className="flex flex-col items-center justify-center pt-7">
-                      <svg
-                        className="w-10 h-10 text-gray-400 group-hover:text-blue-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        ></path>
-                      </svg>
-                      <p className="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-blue-400">
-                        {addImages.length > 0 
-                          ? `${addImages.length} image${addImages.length > 1 ? 's' : ''} selected` 
-                          : 'Click to select images'}
-                      </p>
-                    </div>
-                    <input
-                      type="file"
-                      className="opacity-0"
-                      multiple
-                      accept="image/*"
-                      onChange={handleAddImagesChange}
-                    />
-                  </label>
+                
+                {/* Unified file upload area */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleAddImagesChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    id="file-upload-input"
+                  />
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-300 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  >
+                    <svg
+                      className="mx-auto h-12 w-12 text-gray-400"
+                      stroke="currentColor"
+                      fill="none"
+                      viewBox="0 0 48 48"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-600">
+                      {addImages.length > 0 
+                        ? `${addImages.length} image${addImages.length > 1 ? 's' : ''} selected` 
+                        : 'Click to select or drag and drop images here'
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supports: JPG, PNG, WebP (max 10MB each)
+                    </p>
+                  </div>
                 </div>
+                
+                {/* Debug buttons */}
+                <div className="mt-2 space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fileInput = document.getElementById('file-upload-input');
+                      if (fileInput) {
+                        fileInput.click();
+                        console.log('File input clicked');
+                      } else {
+                        console.log('File input not found');
+                      }
+                    }}
+                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                  >
+                    Test: Open File Picker
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log('Current images:', addImages);
+                      console.log('Images length:', addImages.length);
+                      toast.success(`Selected ${addImages.length} images`);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Debug: Check Images
+                  </button>
+                </div>
+
                 {addFormErrors.images && <div className="text-red-500 text-xs mt-1">{addFormErrors.images}</div>}
+                
                 {/* Preview selected images */}
                 {addImages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {addImages.map((img, idx) => (
-                      <div key={idx} className="relative group">
-                        <img
-                          src={URL.createObjectURL(img)}
-                          alt={`Preview ${idx + 1}`}
-                          className="w-16 h-16 object-cover rounded border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newImages = [...addImages];
-                            newImages.splice(idx, 1);
-                            setAddImages(newImages);
-                          }}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          aria-label="Remove image"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-700">Selected Images ({addImages.length})</h4>
+                      <button
+                        type="button"
+                        onClick={() => setAddImages([])}
+                        className="text-xs text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                      {addImages.map((img, idx) => (
+                        <div key={idx} className="relative group">
+                          <img
+                            src={URL.createObjectURL(img)}
+                            alt={`Preview ${idx + 1}`}
+                            className="w-full h-20 object-cover rounded-lg border-2 border-gray-200 hover:border-blue-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newImages = [...addImages];
+                              newImages.splice(idx, 1);
+                              setAddImages(newImages);
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                            aria-label="Remove image"
+                          >
+                            ×
+                          </button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 text-center rounded-b-lg">
+                            {img.name.length > 12 ? img.name.substring(0, 9) + '...' : img.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

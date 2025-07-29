@@ -2,29 +2,108 @@ const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { protect, authorize } = require('../middleware/auth');
-// Removed: const { cacheMiddleware, invalidateCache } = require('../utils/cache');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Set up multer storage
+// Configure multer for file uploads
+const uploadsDir = path.join(__dirname, '../public/uploads');
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads/'));
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    // Ensure consistent file extension
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, uniqueSuffix + ext);
   }
 });
-const upload = multer({ storage });
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only JPEG, PNG, JPG, and WebP are allowed.'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 5
+  }
+}).array('images', 5);
+
+// Error handling middleware for multer
+const handleMulterErrors = (err, req, res, next) => {
+  if (err) {
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 10MB per file.'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({
+          success: false,
+          message: 'Too many files. Maximum 5 files allowed.'
+        });
+      }
+    } else if (err.message) {
+      // Custom error from fileFilter
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    
+    // For any other errors
+    console.error('File upload error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'File upload failed. Please try again.'
+    });
+  }
+  next();
+};
+
+// Apply the error handling middleware
+router.use(handleMulterErrors);
+
+// Middleware to optionally authenticate a user
+const getAuthUser = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Select only necessary fields for this check
+      req.user = await prisma.user.findUnique({ 
+        where: { id: decoded.id },
+        select: { id: true, role: true }
+      });
+    } catch (error) {
+      req.user = null; // Ignore errors, just means user is not authenticated
+    }
+  }
+  next();
+};
 
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
-router.get('/', [
+router.get('/', getAuthUser, [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('category').optional().isString(),
@@ -54,7 +133,6 @@ router.get('/', [
 
     // Build where clause
     const where = {
-      isActive: true,
       ...(category && { category: { slug: category } }),
       ...(search && {
         OR: [
@@ -64,6 +142,11 @@ router.get('/', [
       }),
       ...(featured && { isFeatured: true }),
     };
+
+    // For non-admin users, only show active products. Admins see all.
+    if (req.user?.role !== 'ADMIN') {
+      where.isActive = true;
+    }
 
     // Build order by clause
     let orderBy = {};
@@ -213,120 +296,252 @@ router.get('/:id', async (req, res) => {
 // @desc    Create product
 // @route   POST /api/products
 // @access  Private/Admin
-router.post('/', protect, authorize('ADMIN'), upload.array('images', 5), async (req, res) => {
-  try {
-    // Parse form fields
-    const { name, description, price, comparePrice, categoryId, stock, sku, weight, dimensions, isFeatured } = req.body;
-    // Validate required fields
-    if (!name || !description || !price || !categoryId || !stock) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-    // Check if category exists
-    const category = await prisma.category.findUnique({ where: { id: categoryId } });
-    if (!category) {
-      return res.status(400).json({ success: false, message: 'Category not found' });
-    }
-    // Handle images
-    let imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map(file => `/uploads/${file.filename}`);
-    }
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price: parseFloat(price),
-        comparePrice: comparePrice ? parseFloat(comparePrice) : null,
-        categoryId,
-        stock: parseInt(stock),
-        sku,
-        images: imageUrls,
-        weight: weight ? parseFloat(weight) : null,
-        dimensions,
-        isFeatured: isFeatured === 'true' || isFeatured === true,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
+router.post('/', protect, authorize('ADMIN'), (req, res, next) => {
+  console.log('Product creation request from:', req.user?.email);
+  
+  // Handle the upload first
+  upload(req, res, async (err) => {
+    try {
+      // Handle multer errors
+      if (err) {
+        console.error('File upload error:', err);
+        return handleMulterErrors(err, req, res, next);
+      }
+
+      console.log('Files uploaded:', req.files ? req.files.length : 0);
+
+      // Parse form fields
+      const { 
+        name, 
+        description, 
+        price, 
+        comparePrice, 
+        categoryId, 
+        stock, 
+        sku, 
+        weight, 
+        dimensions, 
+        isFeatured,
+        status // Added from frontend form
+      } = req.body;
+
+      // Validate required fields
+      if (!name || !description || !price || !categoryId || !stock) {
+        const missingFields = {
+          name: !name,
+          description: !description,
+          price: !price,
+          categoryId: !categoryId,
+          stock: !stock
+        };
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Missing required fields',
+          missing: missingFields
+        });
+      }
+
+      // Check if category exists
+      const category = await prisma.category.findUnique({ 
+        where: { id: categoryId } 
+      });
+      
+      if (!category) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Category not found' 
+        });
+      }
+
+      // Process uploaded files
+      let imageUrls = [];
+      if (req.files && req.files.length > 0) {
+        imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one image is required'
+        });
+      }
+
+      // Create product
+      const product = await prisma.product.create({
+        data: {
+          name,
+          description,
+          price: parseFloat(price),
+          comparePrice: comparePrice ? parseFloat(comparePrice) : null,
+          categoryId,
+          stock: parseInt(stock),
+          sku: sku || null,
+          images: imageUrls,
+          weight: weight ? parseFloat(weight) : null,
+          dimensions: dimensions || null,
+          isFeatured: isFeatured === 'true' || isFeatured === true,
+          isActive: status === 'Active', // Convert status string to boolean
+        },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
           },
         },
-      },
-    });
-    res.status(201).json({ success: true, data: product });
-  } catch (error) {
-    console.error('Create product error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
+      });
+
+      console.log('Product created successfully:', product.id);
+      res.status(201).json({ 
+        success: true, 
+        data: product 
+      });
+
+    } catch (error) {
+      console.error('Create product error:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        meta: error.meta,
+      });
+      
+      // Clean up uploaded files if product creation fails
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => {
+          try {
+            fs.unlinkSync(path.join(uploadsDir, file.filename));
+          } catch (unlinkError) {
+            console.error('Error cleaning up uploaded file:', unlinkError);
+          }
+        });
+      }
+
+      // Handle Prisma errors
+      if (error.code === 'P2002') { // Unique constraint violation
+        return res.status(400).json({
+          success: false,
+          message: 'A product with this SKU or name already exists',
+          field: error.meta?.target?.[0] || 'unknown'
+        });
+      }
+
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to create product',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
 });
 
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
-router.put('/:id', protect, authorize('ADMIN'), [
-  body('name').optional().trim().notEmpty(),
-  body('description').optional().trim().notEmpty(),
-  body('price').optional().isFloat({ min: 0 }),
-  body('categoryId').optional().notEmpty(),
-  body('stock').optional().isInt({ min: 0 }),
-  body('images').optional().isArray(),
-  body('isActive').optional().isBoolean(),
-  body('isFeatured').optional().isBoolean(),
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
+router.put('/:id', protect, authorize('ADMIN'), (req, res, next) => {
+  upload(req, res, async (err) => {
+    try {
+      if (err) {
+        return handleMulterErrors(err, req, res, next);
+      }
+
+      const { id } = req.params;
+      const {
+        name,
+        description,
+        price,
+        comparePrice,
+        categoryId,
+        stock,
+        sku,
+        weight,
+        dimensions,
+        isFeatured,
+        isActive,
+        existingImages // Expect a comma-separated string of URLs for images to keep
+      } = req.body;
+
+      const existingProduct = await prisma.product.findUnique({ where: { id } });
+      if (!existingProduct) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
+      }
+
+      // Process new images
+      let newImageUrls = [];
+      if (req.files && req.files.length > 0) {
+        newImageUrls = req.files.map(file => `/uploads/${file.filename}`);
+      }
+
+      // Combine existing and new images
+      const keptImages = existingImages ? existingImages.split(',').filter(img => img) : [];
+      const allImages = [...keptImages, ...newImageUrls];
+
+      // Identify images to delete from filesystem
+      const imagesToDelete = existingProduct.images.filter(img => !keptImages.includes(img));
+      imagesToDelete.forEach(imgUrl => {
+        const imagePath = path.join(__dirname, '../public', imgUrl);
+        try {
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+          }
+        } catch (err) {
+          if (err.code !== 'ENOENT') {
+            console.error('Error cleaning up uploaded file:', err);
+          } else {
+            console.warn('File not found during deletion (ignored):', imagePath);
+          }
+        }
       });
-    }
 
-    const { id } = req.params;
-    const updateData = { ...req.body };
+      const updateData = {
+        name,
+        description,
+        price: price ? parseFloat(price) : undefined,
+        comparePrice: comparePrice ? parseFloat(comparePrice) : undefined,
+        categoryId,
+        stock: stock ? parseInt(stock) : undefined,
+        sku,
+        images: allImages,
+        weight: weight ? parseFloat(weight) : undefined,
+        dimensions,
+        isFeatured: isFeatured ? (isFeatured === 'true' || isFeatured === true) : undefined,
+        isActive: isActive ? (isActive === 'true' || isActive === true) : undefined,
+      };
 
-    // Convert numeric fields
-    if (updateData.price) updateData.price = parseFloat(updateData.price);
-    if (updateData.comparePrice) updateData.comparePrice = parseFloat(updateData.comparePrice);
-    if (updateData.stock) updateData.stock = parseInt(updateData.stock);
-    if (updateData.weight) updateData.weight = parseFloat(updateData.weight);
+      // Remove undefined fields
+      Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: updateData,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
+      const product = await prisma.product.update({
+        where: { id },
+        data: updateData,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // Invalidate product cache
-    // Removed: await invalidateCache.products();
-
-    res.json({
-      success: true,
-      data: product,
-    });
-  } catch (error) {
-    console.error('Update product error:', error);
-    if (error.code === 'P2025') {
-      return res.status(404).json({
+      res.json({
+        success: true,
+        data: product,
+      });
+    } catch (error) {
+      console.error('Update product error:', error);
+      if (error.code === 'P2025') {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found',
+        });
+      }
+      res.status(500).json({
         success: false,
-        message: 'Product not found',
+        message: 'Server error',
       });
     }
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
-  }
+  });
 });
 
 // @desc    Delete product

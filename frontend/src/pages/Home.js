@@ -7,6 +7,7 @@ import api from '../utils/api';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import CategoryGrid from '../components/ui/CategoryGrid';
 import { Helmet } from 'react-helmet-async';
 
 const Home = () => {
@@ -124,46 +125,14 @@ const Home = () => {
             <p className="text-lg text-gray-600">Find exactly what you're looking for</p>
           </motion.div>
 
-          {categoriesLoading ? (
-            <LoadingSpinner size="lg" />
-          ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              className="grid grid-cols-2 md:grid-cols-4 gap-6"
-            >
-              {categories?.map((category) => (
-                <motion.div
-                  key={category.id}
-                  variants={itemVariants}
-                  whileHover={{ scale: 1.05 }}
-                  className="group"
-                >
-                  <Link
-                    to={`/products?category=${category.slug}`}
-                    className="block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
-                  >
-                    {category.image && (
-                      <div className="aspect-square overflow-hidden">
-                        <img
-                          src={category.image}
-                          alt={category.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <h3 className="font-semibold text-gray-900 mb-1">{category.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        {category._count?.products || 0} products
-                      </p>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
+          <CategoryGrid
+            categories={categories}
+            loading={categoriesLoading}
+            gridCols="grid-cols-2 md:grid-cols-4"
+            gap="gap-6"
+            showImage={true}
+            showProductCount={true}
+          />
         </div>
       </section>
 

@@ -5,13 +5,10 @@ import { CreditCard, Truck, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
-import { useStripe, useElements, CardElement, PaymentRequestButtonElement } from '@stripe/react-stripe-js';
+import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import toast from 'react-hot-toast';
 import { Helmet } from 'react-helmet-async';
-import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
-
-const GOOGLE_MAPS_LIBRARIES = ['places'];
+// Google Maps and PayPal imports removed as they're not being used
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -58,16 +55,13 @@ const Checkout = () => {
   const elements = useElements();
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentError, setPaymentError] = useState('');
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [, setPaymentSuccess] = useState(false);
   const [shippingErrors, setShippingErrors] = useState({});
   const [billingErrors, setBillingErrors] = useState({});
   const [apiError, setApiError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('card'); // Only 'card' and 'cod'
-  const [paymentRequest, setPaymentRequest] = useState(null);
-  const [isPaymentRequestAvailable, setIsPaymentRequestAvailable] = useState(false);
-  // Add state for PayPal loading and error
-  const [paypalLoading, setPaypalLoading] = useState(false);
-  const [paypalError, setPaypalError] = useState('');
+
+  // Payment request functionality removed as it's not being used
 
   // Remove all useJsApiLoader, Autocomplete, and Google Maps API key logic
   // Use plain input for shipping address:
@@ -110,30 +104,7 @@ const Checkout = () => {
     // eslint-disable-next-line
   }, [step, cartItems, total, paymentMethod]);
 
-  useEffect(() => {
-    if (
-      stripe &&
-      window.PaymentRequest &&
-      typeof total === 'number' &&
-      !isNaN(total) &&
-      total > 0
-    ) {
-      const pr = stripe.paymentRequest({
-        country: 'US',
-        currency: 'usd',
-        total: { label: 'Total', amount: Math.round(total * 100) },
-        requestPayerName: true,
-        requestPayerEmail: true,
-      });
-      pr.canMakePayment().then(result => {
-        setIsPaymentRequestAvailable(!!result);
-        if (result) setPaymentRequest(pr);
-      });
-    } else {
-      setIsPaymentRequestAvailable(false);
-      setPaymentRequest(null);
-    }
-  }, [stripe, total]);
+
 
   const handleInputChange = (section, field, value) => {
     setFormData(prev => ({

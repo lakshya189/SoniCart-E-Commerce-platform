@@ -3,8 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Layout Components
-import Header from './components/layout/Header';
-import Footer from './components/layout/Footer';
+import MainLayout from './components/layout/MainLayout';
 import AdminLayout from './components/layout/AdminLayout';
 
 // Page Components
@@ -36,17 +35,11 @@ import AdminUsers from './pages/admin/Users';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AdminRoute from './components/auth/AdminRoute';
 
-// Loading Component
-import LoadingSpinner from './components/ui/LoadingSpinner';
-
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
-      
-      <main className="flex-1">
-        <AnimatePresence mode="wait">
-          <Routes>
+    <MainLayout>
+      <AnimatePresence mode="wait">
+        <Routes>
             {/* Public Routes */}
             <Route
               path="/"
@@ -292,10 +285,7 @@ function App() {
             />
           </Routes>
         </AnimatePresence>
-      </main>
-      
-      <Footer />
-    </div>
+    </MainLayout>
   );
 }
 
