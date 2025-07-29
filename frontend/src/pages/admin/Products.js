@@ -27,6 +27,19 @@ const Products = () => {
   const [addLoading, setAddLoading] = useState(false);
   const [addImages, setAddImages] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState({});
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    categoryId: '',
+    price: '',
+    stock: '',
+    status: 'Active',
+    description: '',
+  });
+  const [editFormErrors, setEditFormErrors] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editImages, setEditImages] = useState([]);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   useEffect(() => {
     // Check if user is authenticated and has admin role
@@ -72,9 +85,37 @@ const Products = () => {
   };
   const closeAddModal = () => setShowAddModal(false);
 
+  const openEditModal = (product) => {
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name,
+      categoryId: product.categoryId,
+      price: product.price.toString(),
+      stock: product.stock.toString(),
+      status: product.isActive ? 'Active' : 'Inactive',
+      description: product.description,
+      existingImages: product.images ? product.images.join(',') : '',
+    });
+    setEditFormErrors({});
+    setEditImages([]);
+    setShowEditModal(true);
+  };
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingProduct(null);
+    setEditForm({ name: '', categoryId: '', price: '', stock: '', status: 'Active', description: '' });
+    setEditFormErrors({});
+    setEditImages([]);
+  };
+
   const handleAddFormChange = (field, value) => {
     setAddForm(prev => ({ ...prev, [field]: value }));
     setAddFormErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+    setEditFormErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const handleAddImagesChange = (e) => {
@@ -97,6 +138,28 @@ const Products = () => {
     
     console.log('Valid files:', validFiles.length);
     setAddImages(validFiles);
+  };
+
+  const handleEditImagesChange = (e) => {
+    const files = Array.from(e.target.files);
+    console.log('Edit files selected:', files.length);
+    console.log('Edit files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+    
+    // Simple validation
+    const validFiles = files.filter(file => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image file`);
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 10MB)`);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log('Valid edit files:', validFiles.length);
+    setEditImages(validFiles);
   };
 
   const handleDragOver = (e) => {
@@ -139,6 +202,18 @@ const Products = () => {
     if (!addForm.description.trim()) errs.description = 'Description is required';
     if (addImages.length === 0) errs.images = 'At least one image is required';
     setAddFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const validateEditForm = () => {
+    const errs = {};
+    if (!editForm.name.trim()) errs.name = 'Product name is required';
+    if (!editForm.categoryId) errs.categoryId = 'Category is required';
+    if (!editForm.price || isNaN(editForm.price)) errs.price = 'Valid price is required';
+    if (!editForm.stock || isNaN(editForm.stock)) errs.stock = 'Valid stock is required';
+    if (!editForm.status) errs.status = 'Status is required';
+    if (!editForm.description.trim()) errs.description = 'Description is required';
+    setEditFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
@@ -257,6 +332,79 @@ const Products = () => {
       toast.error(errorMessage);
     } finally {
       setDeleteLoading(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    console.log('Edit form submission started');
+    console.log('Edit form data:', editForm);
+    console.log('Edit images:', editImages.length);
+    
+    if (!validateEditForm()) {
+      console.log('Edit form validation failed');
+      return;
+    }
+    
+    setEditLoading(true);
+    
+    try {
+      const formData = new FormData();
+      
+      // Append all form fields
+      Object.entries(editForm).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value);
+          console.log('Added edit field:', key, value);
+        }
+      });
+      
+      // Append new images if any
+      editImages.forEach((file, index) => {
+        formData.append('images', file);
+        console.log('Added edit image:', index, file.name, file.size);
+      });
+
+      console.log('Submitting edit with', editImages.length, 'new images');
+
+      await api.put(`/products/${editingProduct.id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Product updated successfully!');
+      
+      // Reset form and close modal
+      closeEditModal();
+      
+      // Refresh products
+      const prodRes = await api.get('/products');
+      setProducts(prodRes.data.data || []);
+    } catch (err) {
+      console.error('Error updating product:', err);
+      
+      let errorMessage = 'Failed to update product. Please try again.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied. Admin privileges required.';
+      } else if (err.response?.status === 400) {
+        errorMessage = err.response.data?.message || 'Invalid data provided.';
+      } else if (err.response?.status === 413) {
+        errorMessage = 'File too large. Please use smaller images.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      setEditFormErrors({ 
+        api: errorMessage
+      });
+      
+      toast.error(errorMessage);
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -514,6 +662,254 @@ const Products = () => {
         </div>
       )}
 
+      {/* Edit Product Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Edit Product</h2>
+                <button
+                  onClick={closeEditModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Close edit modal"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-gray-600 mt-2">Update product information and images</p>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-6">
+              {editFormErrors.api && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-700 text-sm">{editFormErrors.api}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Product Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => handleEditFormChange('name', e.target.value)}
+                    className={`input ${editFormErrors.name ? 'border-red-500' : ''}`}
+                    placeholder="Enter product name"
+                  />
+                  {editFormErrors.name && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category *
+                  </label>
+                  <select
+                    value={editForm.categoryId}
+                    onChange={(e) => handleEditFormChange('categoryId', e.target.value)}
+                    className={`input ${editFormErrors.categoryId ? 'border-red-500' : ''}`}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  {editFormErrors.categoryId && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.categoryId}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Price *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.price}
+                    onChange={(e) => handleEditFormChange('price', e.target.value)}
+                    className={`input ${editFormErrors.price ? 'border-red-500' : ''}`}
+                    placeholder="0.00"
+                  />
+                  {editFormErrors.price && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.price}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Stock *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.stock}
+                    onChange={(e) => handleEditFormChange('stock', e.target.value)}
+                    className={`input ${editFormErrors.stock ? 'border-red-500' : ''}`}
+                    placeholder="0"
+                  />
+                  {editFormErrors.stock && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.stock}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status *
+                  </label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => handleEditFormChange('status', e.target.value)}
+                    className={`input ${editFormErrors.status ? 'border-red-500' : ''}`}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                  {editFormErrors.status && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.status}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => handleEditFormChange('description', e.target.value)}
+                  rows="4"
+                  className={`input ${editFormErrors.description ? 'border-red-500' : ''}`}
+                  placeholder="Enter product description"
+                />
+                {editFormErrors.description && (
+                  <p className="text-red-500 text-xs mt-1">{editFormErrors.description}</p>
+                )}
+              </div>
+
+              {/* Existing Images */}
+              {editingProduct?.images && editingProduct.images.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Images
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {editingProduct.images.map((imgUrl, idx) => (
+                      <div key={idx} className="relative">
+                        <img
+                          src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${imgUrl}`}
+                          alt={`Product ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentImages = editForm.existingImages.split(',').filter(img => img);
+                            const updatedImages = currentImages.filter(img => img !== imgUrl);
+                            handleEditFormChange('existingImages', updatedImages.join(','));
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                          aria-label="Remove image"
+                        >
+                          ×
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 text-center rounded-b-lg">
+                          Current
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Click × to remove images. Removed images will be deleted permanently.</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Images (Optional - only add new images)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-300 hover:bg-gray-50 transition-colors cursor-pointer relative">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleEditImagesChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <p className="mt-2 text-sm text-gray-600">Click to select or drag and drop images here</p>
+                  <p className="text-xs text-gray-500 mt-1">Only new images will be added. Existing images will be preserved.</p>
+                </div>
+                {editImages.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">New Images to Add:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {editImages.map((img, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={URL.createObjectURL(img)}
+                            alt={`Preview ${idx + 1}`}
+                            className="w-full h-24 object-cover rounded-lg border"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newImages = [...editImages];
+                              newImages.splice(idx, 1);
+                              setEditImages(newImages);
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+                            aria-label="Remove image"
+                          >
+                            ×
+                          </button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 text-center rounded-b-lg">
+                            {img.name.length > 12 ? img.name.substring(0, 9) + '...' : img.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-4">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  {editLoading ? 'Updating...' : 'Update Product'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
       {/* Filters in a card */}
       <div className="card mb-2 flex flex-col md:flex-row md:items-center gap-1 p-2" role="region" aria-label="Product Filters">
         <div className="relative w-full md:w-64">
@@ -625,7 +1021,13 @@ const Products = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3 flex gap-2">
-                    <button className="btn btn-secondary text-xs flex items-center" title="Edit Product" aria-label={`Edit product ${product.name}`} tabIndex={0}>
+                    <button 
+                      className="btn btn-secondary text-xs flex items-center" 
+                      title="Edit Product" 
+                      aria-label={`Edit product ${product.name}`} 
+                      tabIndex={0}
+                      onClick={() => openEditModal(product)}
+                    >
                       <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.828l-4 1a4 4 0 01-1.414-.828z" /></svg>
                       Edit
                     </button>
