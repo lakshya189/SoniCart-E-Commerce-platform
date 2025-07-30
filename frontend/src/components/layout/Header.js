@@ -10,11 +10,13 @@ import {
   LogOut,
   Settings,
   Package,
-  Heart
+  Heart,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useWishlist } from '../../contexts/WishlistContext';
+import NotificationBell from '../ui/NotificationBell';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -108,6 +110,9 @@ const Header = () => {
                 )}
               </Link>
 
+              {/* Notifications */}
+              <NotificationBell />
+
               {/* Cart */}
               <Link
                 to="/cart"
@@ -158,6 +163,14 @@ const Header = () => {
                       >
                         <Package className="h-4 w-4 mr-3" />
                         Orders
+                      </Link>
+                      <Link
+                        to="/notifications"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Bell className="h-4 w-4 mr-3" />
+                        Notifications
                       </Link>
                       <button
                         onClick={handleLogout}

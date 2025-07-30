@@ -100,100 +100,135 @@ const getAuthUser = async (req, res, next) => {
   next();
 };
 
-// @desc    Get all products
+// @desc    Get all products with advanced search and filtering
 // @route   GET /api/products
 // @access  Public
-router.get('/', getAuthUser, [
-  query('page').optional().isInt({ min: 1 }),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
-  query('category').optional().isString(),
-  query('search').optional().isString(),
-  query('sort').optional().isIn(['price_asc', 'price_desc', 'name_asc', 'name_desc', 'created_desc']),
-  query('featured').optional().isBoolean(),
-], async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
     const {
       page = 1,
       limit = 12,
-      category,
       search,
-      sort = 'created_desc',
+      category,
+      minPrice,
+      maxPrice,
+      rating,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
       featured,
+      inStock,
+      q // Alternative search parameter
     } = req.query;
 
-    const skip = (page - 1) * limit;
+    const searchQuery = search || q;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
     const where = {
-      ...(category && { category: { slug: category } }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-      ...(featured && { isFeatured: true }),
+      isActive: true,
     };
 
-    // For non-admin users, only show active products. Admins see all.
-    if (req.user?.role !== 'ADMIN') {
-      where.isActive = true;
+    // Search functionality
+    if (searchQuery) {
+      where.OR = [
+        { name: { contains: searchQuery, mode: 'insensitive' } },
+        { description: { contains: searchQuery, mode: 'insensitive' } },
+        { sku: { contains: searchQuery, mode: 'insensitive' } },
+      ];
+    }
+
+    // Category filter
+    if (category) {
+      where.categoryId = category;
+    }
+
+    // Price range filter
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price.gte = parseFloat(minPrice);
+      if (maxPrice) where.price.lte = parseFloat(maxPrice);
+    }
+
+    // Featured filter
+    if (featured === 'true') {
+      where.isFeatured = true;
+    }
+
+    // Stock filter
+    if (inStock === 'true') {
+      where.stock = { gt: 0 };
     }
 
     // Build order by clause
     let orderBy = {};
-    switch (sort) {
+    switch (sortBy) {
       case 'price_asc':
-        orderBy = { price: 'asc' };
+        orderBy.price = 'asc';
         break;
       case 'price_desc':
-        orderBy = { price: 'desc' };
+        orderBy.price = 'desc';
         break;
       case 'name_asc':
-        orderBy = { name: 'asc' };
+        orderBy.name = 'asc';
         break;
       case 'name_desc':
-        orderBy = { name: 'desc' };
+        orderBy.name = 'desc';
         break;
+      case 'rating':
+        orderBy = {
+          reviews: {
+            _count: 'desc'
+          }
+        };
+        break;
+      case 'newest':
+        orderBy.createdAt = 'desc';
+        break;
+      case 'popular':
+        orderBy = {
+          orderItems: {
+            _count: 'desc'
+          }
+        };
+        break;
+      case 'relevance':
       default:
-        orderBy = { createdAt: 'desc' };
+        orderBy.createdAt = 'desc';
+        break;
     }
 
     // Get products with pagination
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          reviews: {
-            select: {
-              rating: true,
-            },
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
           },
         },
-        orderBy,
-        skip: parseInt(skip),
-        take: parseInt(limit),
-      }),
-      prisma.product.count({ where }),
-    ]);
+        reviews: {
+          select: {
+            rating: true,
+          },
+        },
+        _count: {
+          select: {
+            reviews: true,
+            orderItems: true,
+          },
+        },
+      },
+      orderBy,
+      skip,
+      take: limitNum,
+    });
 
-    // Calculate average rating for each product
-    const productsWithRating = products.map(product => {
+    // Calculate average ratings and add additional data
+    const productsWithRatings = products.map(product => {
       const avgRating = product.reviews.length > 0
         ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
         : 0;
@@ -201,23 +236,31 @@ router.get('/', getAuthUser, [
       return {
         ...product,
         averageRating: Math.round(avgRating * 10) / 10,
-        reviewCount: product.reviews.length,
-        reviews: undefined, // Remove reviews array from response
+        reviewCount: product._count.reviews,
+        orderCount: product._count.orderItems,
       };
     });
 
-    const totalPages = Math.ceil(total / limit);
+    // Apply rating filter after calculating averages
+    let filteredProducts = productsWithRatings;
+    if (rating) {
+      const minRating = parseInt(rating);
+      filteredProducts = productsWithRatings.filter(product => product.averageRating >= minRating);
+    }
+
+    // Get total count for pagination
+    const totalProducts = await prisma.product.count({ where });
+    const totalPages = Math.ceil(totalProducts / limitNum);
 
     res.json({
       success: true,
-      data: productsWithRating,
+      data: filteredProducts,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
+        currentPage: pageNum,
         totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
+        totalProducts,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1,
       },
     });
   } catch (error) {
@@ -768,138 +811,6 @@ router.post('/:id/reviews', protect, [
   }
 });
 
-// @desc    Update product review
-// @route   PUT /api/products/:id/reviews
-// @access  Private
-router.put('/:id/reviews', protect, [
-  body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
-  body('comment').optional().isString().trim(),
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array(),
-      });
-    }
-
-    const { id } = req.params;
-    const { rating, comment } = req.body;
-
-    // Check if product exists
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
-    }
-
-    // Find existing review
-    const existingReview = await prisma.review.findUnique({
-      where: {
-        userId_productId: {
-          userId: req.user.id,
-          productId: id,
-        },
-      },
-    });
-
-    if (!existingReview) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found',
-      });
-    }
-
-    // Update review
-    const review = await prisma.review.update({
-      where: { id: existingReview.id },
-      data: {
-        rating,
-        comment,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-          },
-        },
-      },
-    });
-
-    res.json({
-      success: true,
-      data: review,
-    });
-  } catch (error) {
-    console.error('Update review error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
-  }
-});
-
-// @desc    Delete product review
-// @route   DELETE /api/products/:id/reviews
-// @access  Private
-router.delete('/:id/reviews', protect, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if product exists
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found',
-      });
-    }
-
-    // Find existing review
-    const existingReview = await prisma.review.findUnique({
-      where: {
-        userId_productId: {
-          userId: req.user.id,
-          productId: id,
-        },
-      },
-    });
-
-    if (!existingReview) {
-      return res.status(404).json({
-        success: false,
-        message: 'Review not found',
-      });
-    }
-
-    // Delete review
-    await prisma.review.delete({
-      where: { id: existingReview.id },
-    });
-
-    res.json({
-      success: true,
-      message: 'Review deleted successfully',
-    });
-  } catch (error) {
-    console.error('Delete review error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
-  }
-});
+// Removed PUT and DELETE review routes - reviews are now permanent once written
 
 module.exports = router; 

@@ -120,7 +120,7 @@ router.post('/login', [
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        address: true,
+        addresses: true,
       },
     });
 
@@ -177,7 +177,7 @@ router.get('/me', protect, async (req, res) => {
         role: true,
         avatar: true,
         phone: true,
-        address: true,
+        addresses: true,
         createdAt: true,
         updatedAt: true,
       },

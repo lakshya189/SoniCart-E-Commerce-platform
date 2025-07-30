@@ -17,6 +17,9 @@ const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const wishlistRoutes = require('./routes/wishlist');
+const inventoryRoutes = require('./routes/inventory');
+const notificationRoutes = require('./routes/notifications');
+const addressRoutes = require('./routes/addresses');
 const { errorHandler } = require('./middleware/errorHandler');
 const { sanitizeInput, auditLog } = require('./middleware/security');
 
@@ -119,6 +122,9 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/wishlist', wishlistRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/addresses', addressRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

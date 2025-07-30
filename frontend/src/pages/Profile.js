@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Save, Edit, Plus, Trash, Star } from 'lucide-react';
+import { Save, Edit, Plus, Trash, Star, User, Mail, Phone, MapPin } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
@@ -216,6 +216,7 @@ const Profile = () => {
             )}
           </form>
         </div>
+        
         {/* Change Password Section */}
         <div className="bg-white rounded-lg shadow-sm mt-8">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">

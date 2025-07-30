@@ -25,6 +25,7 @@ import ShippingInfo from './pages/ShippingInfo';
 import ReturnsExchange from './pages/ReturnsExchange';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Wishlist from './pages/Wishlist';
+import Notifications from './pages/Notifications';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -215,6 +216,7 @@ function App() {
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/returns" element={<ReturnsExchange />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             
             {/* Admin Routes */}
             <Route

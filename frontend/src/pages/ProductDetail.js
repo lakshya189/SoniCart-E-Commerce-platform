@@ -30,7 +30,6 @@ const ProductDetail = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [error, setError] = useState(null);
-  const [editingReview, setEditingReview] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewErrors, setReviewErrors] = useState({});
   const [reviewApiError, setReviewApiError] = useState('');
@@ -91,27 +90,7 @@ const ProductDetail = () => {
     addToCart(product.id, quantity);
   };
 
-  const handleEditReview = () => {
-    setReviewForm({ rating: userReview.rating, comment: userReview.comment || '' });
-    setShowReviewForm(true);
-    setEditingReview(true);
-  };
-
-  const handleDeleteReview = async () => {
-    if (!window.confirm('Are you sure you want to delete your review?')) return;
-    setReviewLoading(true);
-    try {
-      await api.delete(`/products/${id}/reviews`);
-      toast.success('Review deleted');
-      setShowReviewForm(false);
-      setEditingReview(false);
-      fetchReviews();
-    } catch (error) {
-      toast.error('Failed to delete review');
-    } finally {
-      setReviewLoading(false);
-    }
-  };
+  // Removed handleEditReview and handleDeleteReview functions - reviews are now permanent
 
   const handleReviewFormChange = (field, value) => {
     setReviewForm(prev => ({ ...prev, [field]: value }));
@@ -130,15 +109,9 @@ const ProductDetail = () => {
     if (!validateReview()) return;
     setReviewLoading(true);
     try {
-      if (editingReview) {
-        await api.put(`/products/${id}/reviews`, reviewForm);
-        toast.success('Review updated');
-      } else {
-        await api.post(`/products/${id}/reviews`, reviewForm);
-        toast.success('Review submitted');
-      }
+      await api.post(`/products/${id}/reviews`, reviewForm);
+      toast.success('Review submitted');
       setShowReviewForm(false);
-      setEditingReview(false);
       setReviewForm({ rating: 5, comment: '' });
       fetchReviews();
     } catch (error) {
@@ -381,7 +354,7 @@ const ProductDetail = () => {
           <h2 className="text-2xl font-bold text-gray-900">Customer Reviews</h2>
           {user && !userReview && (
             <button
-              onClick={() => { setShowReviewForm(!showReviewForm); setEditingReview(false); }}
+              onClick={() => { setShowReviewForm(!showReviewForm); }}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               {showReviewForm ? 'Cancel' : 'Write a Review'}
@@ -428,7 +401,7 @@ const ProductDetail = () => {
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 disabled={reviewLoading}
               >
-                {reviewLoading ? (editingReview ? 'Updating...' : 'Submitting...') : (editingReview ? 'Update Review' : 'Submit Review')}
+                {reviewLoading ? 'Submitting...' : 'Submit Review'}
               </button>
             </form>
           </div>
@@ -465,22 +438,7 @@ const ProductDetail = () => {
               {userReview.comment && (
                 <p className="text-gray-700 mb-2">{userReview.comment}</p>
               )}
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={handleEditReview}
-                  className="px-4 py-1 rounded bg-yellow-400 text-white font-medium hover:bg-yellow-500"
-                  disabled={reviewLoading}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={handleDeleteReview}
-                  className="px-4 py-1 rounded bg-red-500 text-white font-medium hover:bg-red-600"
-                  disabled={reviewLoading}
-                >
-                  Delete
-                </button>
-              </div>
+              {/* Removed edit and delete buttons - reviews are now permanent */}
             </div>
           )}
           {/* Other reviews */}

@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import './index.css';
 
 // Register service worker for PWA
@@ -66,35 +67,37 @@ root.render(
           <AuthProvider>
             <CartProvider>
               <WishlistProvider>
-                <Elements stripe={stripePromise}>
-                  <HelmetProvider>
-                    <App />
-                  </HelmetProvider>
-                  <Toaster
-                    position="top-right"
-                    toastOptions={{
-                      duration: 4000,
-                      style: {
-                        background: '#363636',
-                        color: '#fff',
-                      },
-                      success: {
-                        duration: 3000,
-                        iconTheme: {
-                          primary: '#10b981',
-                          secondary: '#fff',
+                <NotificationProvider>
+                  <Elements stripe={stripePromise}>
+                    <HelmetProvider>
+                      <App />
+                    </HelmetProvider>
+                    <Toaster
+                      position="top-right"
+                      toastOptions={{
+                        duration: 4000,
+                        style: {
+                          background: '#363636',
+                          color: '#fff',
                         },
-                      },
-                      error: {
-                        duration: 5000,
-                        iconTheme: {
-                          primary: '#ef4444',
-                          secondary: '#fff',
+                        success: {
+                          duration: 3000,
+                          iconTheme: {
+                            primary: '#10b981',
+                            secondary: '#fff',
+                          },
                         },
-                      },
-                    }}
-                  />
-                </Elements>
+                        error: {
+                          duration: 5000,
+                          iconTheme: {
+                            primary: '#ef4444',
+                            secondary: '#fff',
+                          },
+                        },
+                      }}
+                    />
+                  </Elements>
+                </NotificationProvider>
               </WishlistProvider>
             </CartProvider>
           </AuthProvider>

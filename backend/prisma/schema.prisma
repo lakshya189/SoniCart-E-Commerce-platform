@@ -19,7 +19,7 @@ model User {
   role      Role     @default(USER)
   avatar    String?
   phone     String?
-  address   Address?
+  addresses Address[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -27,13 +27,17 @@ model User {
   reviews      Review[]
   cartItems    CartItem[]
   wishlistItems WishlistItem[]
+  inventoryAlerts InventoryAlert[]
+  stockNotifications StockNotification[]
+  userNotifications UserNotification[]
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
 
 model Address {
   id          String  @id @default(cuid())
-  userId      String  @unique
+  userId      String
   street      String
   city        String
   state       String
@@ -101,6 +105,8 @@ model Product {
   reviews       Review[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
+  inventoryAlerts InventoryAlert[]
+  stockNotifications StockNotification[]
 
   @@map("products")
 }
@@ -189,6 +195,71 @@ model WishlistItem {
   @@map("wishlist_items")
 }
 
+model InventoryAlert {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String?
+  type      AlertType
+  threshold Int      // Stock level threshold
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("inventory_alerts")
+}
+
+model StockNotification {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  type      NotificationType
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("stock_notifications")
+}
+
+model UserNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?    // Additional data for the notification
+  isRead    Boolean  @default(false)
+  isEmail   Boolean  @default(false) // Whether email was sent
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_notifications")
+}
+
+model NotificationPreference {
+  id                    String @id @default(cuid())
+  userId                String @unique
+  emailNotifications    Boolean @default(true)
+  pushNotifications     Boolean @default(true)
+  orderUpdates          Boolean @default(true)
+  priceDrops            Boolean @default(true)
+  newArrivals           Boolean @default(true)
+  stockAlerts           Boolean @default(true)
+  marketingEmails       Boolean @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
 enum Role {
   USER
   ADMIN
@@ -238,4 +309,18 @@ enum ReviewStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  BACK_IN_STOCK
+}
+
+enum NotificationType {
+  LOW_STOCK_ALERT
+  OUT_OF_STOCK_ALERT
+  BACK_IN_STOCK_ALERT
+  PRICE_DROP_ALERT
+  NEW_ARRIVAL_ALERT
 }
