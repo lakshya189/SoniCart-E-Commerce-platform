@@ -2,10 +2,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Star, ShoppingCart } from 'lucide-react';
+import { ArrowRight, Star, ShoppingCart, Heart } from 'lucide-react';
 import api from '../utils/api';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useWishlist } from '../contexts/WishlistContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import CategoryGrid from '../components/ui/CategoryGrid';
 import { Helmet } from 'react-helmet-async';
@@ -13,6 +14,7 @@ import { Helmet } from 'react-helmet-async';
 const Home = () => {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   // Fetch featured products
   const { data: featuredProducts, isLoading: productsLoading } = useQuery({
@@ -163,8 +165,21 @@ const Home = () => {
                   key={product.id}
                   variants={itemVariants}
                   whileHover={{ y: -5 }}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative"
                 >
+                  <div className="absolute top-3 right-3 z-10">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleWishlist(product.id);
+                      }}
+                      className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition-colors"
+                      aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                    >
+                      <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                    </button>
+                  </div>
                   <Link to={`/products/${product.id}`}>
                     <div className="aspect-square overflow-hidden">
                       <img

@@ -10,12 +10,11 @@ import {
   LogOut,
   Settings,
   Package,
-  Users,
-  BarChart3
+  Heart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
-import { cn } from '../../utils/cn';
+import { useWishlist } from '../../contexts/WishlistContext';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -23,6 +22,7 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { user, isAuthenticated, logout } = useAuth();
   const { getCartItemCount } = useCart();
+  const { getWishlistCount } = useWishlist();
   const navigate = useNavigate();
 
   const handleSearch = (e) => {
@@ -39,6 +39,7 @@ const Header = () => {
   };
 
   const cartItemCount = getCartItemCount();
+  const wishlistCount = getWishlistCount();
 
   return (
     <>
@@ -90,6 +91,23 @@ const Header = () => {
 
             {/* Right side actions */}
             <div className="flex items-center space-x-4">
+              {/* Wishlist */}
+              <Link
+                to="/wishlist"
+                className="relative p-2 text-gray-700 hover:text-primary-600 transition-colors duration-200"
+              >
+                <Heart className="h-6 w-6" />
+                {wishlistCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                  >
+                    {wishlistCount}
+                  </motion.span>
+                )}
+              </Link>
+
               {/* Cart */}
               <Link
                 to="/cart"

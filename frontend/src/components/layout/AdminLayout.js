@@ -11,7 +11,8 @@ import {
   X,
   Home,
   ChevronRight,
-  UserCircle
+  UserCircle,
+  Heart
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -27,6 +28,7 @@ const AdminLayout = ({ children }) => {
     { name: 'Products', href: '/admin/products', icon: Package },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
     { name: 'Users', href: '/admin/users', icon: Users },
+    { name: 'Wishlist', href: '/admin/wishlist', icon: Heart },
   ];
 
   const getBreadcrumbs = () => {

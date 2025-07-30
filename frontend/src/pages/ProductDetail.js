@@ -2,23 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { Star, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ShoppingCart, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
-import { Heart, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useWishlist } from '../contexts/WishlistContext';
 import api from '../utils/api';
-import { io } from 'socket.io-client';
+// import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { Helmet } from 'react-helmet-async';
 
-const SOCKET_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '').replace('http', 'ws') || 'ws://localhost:5000';
+// const SOCKET_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '').replace('http', 'ws') || 'ws://localhost:5000';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { toggleWishlist, isInWishlist } = useWishlist();
   
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,15 +46,15 @@ const ProductDetail = () => {
     
     loadData();
     
-    // Socket.io for real-time stock updates
-    const socket = io(SOCKET_URL);
-    socket.on('productStockUpdated', ({ productId, stock }) => {
-      setProduct((prev) => prev && prev.id === productId ? { ...prev, stock } : prev);
-    });
+    // Socket.io for real-time stock updates (temporarily disabled)
+    // const socket = io(SOCKET_URL);
+    // socket.on('productStockUpdated', ({ productId, stock }) => {
+    //   setProduct((prev) => prev && prev.id === productId ? { ...prev, stock } : prev);
+    // });
     
-    return () => {
-      socket.disconnect();
-    };
+    // return () => {
+    //   socket.disconnect();
+    // };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -340,14 +342,24 @@ const ProductDetail = () => {
               </div>
             </div>
             
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+              
+              <button
+                onClick={() => toggleWishlist(product.id)}
+                className="px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Heart className={`h-5 w-5 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                {isInWishlist(product.id) ? 'Wishlisted' : 'Wishlist'}
+              </button>
+            </div>
           </div>
 
           {/* Product Details */}

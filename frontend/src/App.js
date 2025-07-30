@@ -24,12 +24,14 @@ import HelpCenter from './pages/HelpCenter';
 import ShippingInfo from './pages/ShippingInfo';
 import ReturnsExchange from './pages/ReturnsExchange';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import Wishlist from './pages/Wishlist';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/Products';
 import AdminOrders from './pages/admin/Orders';
 import AdminUsers from './pages/admin/Users';
+import AdminWishlist from './pages/admin/Wishlist';
 
 // Protected Route Component
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -210,6 +212,7 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/help" element={<HelpCenter />} />
             <Route path="/shipping" element={<ShippingInfo />} />
+            <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/returns" element={<ReturnsExchange />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             
@@ -253,6 +256,16 @@ function App() {
                 <AdminRoute>
                   <AdminLayout>
                     <AdminUsers />
+                  </AdminLayout>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/wishlist"
+              element={
+                <AdminRoute>
+                  <AdminLayout>
+                    <AdminWishlist />
                   </AdminLayout>
                 </AdminRoute>
               }

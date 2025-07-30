@@ -16,6 +16,7 @@ const paymentRoutes = require('./routes/payments');
 const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const wishlistRoutes = require('./routes/wishlist');
 const { errorHandler } = require('./middleware/errorHandler');
 const { sanitizeInput, auditLog } = require('./middleware/security');
 
@@ -39,22 +40,8 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Support multiple origins for CORS
-const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(origin => origin.trim());
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-}));
-
-// Handle preflight requests
+// CORS configuration
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map(origin => origin.trim());
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc.)
@@ -70,6 +57,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 
+app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // Compression middleware
@@ -130,6 +118,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
