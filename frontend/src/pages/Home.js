@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +15,8 @@ const Home = () => {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
+  const [videoError, setVideoError] = useState(false);
+  const videoRef = useRef(null);
 
   // Fetch featured products
   const { data: featuredProducts, isLoading: productsLoading } = useQuery({
@@ -81,8 +83,33 @@ const Home = () => {
         <link rel="canonical" href="https://yourdomain.com/" />
       </Helmet>
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-primary-600 to-primary-800 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative text-white py-20 overflow-hidden">
+        {/* Video Background */}
+        <div className="absolute inset-0 z-0">
+          {!videoError ? (
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+              style={{ filter: 'blur(0.3px) brightness(2.7)' }}
+              onError={() => setVideoError(true)}
+              ref={videoRef}
+            >
+              <source src="/videos/55290-499594204.mp4" type="video/mp4" />
+              {/* Fallback gradient if video fails to load */}
+            </video>
+          ) : (
+            /* Fallback gradient background */
+            <div className="w-full h-full bg-gradient-to-r from-primary-600 to-primary-800"></div>
+          )}
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-600/80 to-primary-800/80"></div>
+        </div>
+        
+        {/* Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
