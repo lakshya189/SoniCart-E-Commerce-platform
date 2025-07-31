@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Search, Download, DollarSign, Calendar, User, Package } from 'lucide-react';
+import { Eye, Search, Download, DollarSign, Calendar, User, Package, Truck } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import TrackingModal from '../../components/admin/TrackingModal';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -9,6 +10,8 @@ const AdminOrders = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [selectedOrderForTracking, setSelectedOrderForTracking] = useState(null);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -224,6 +227,23 @@ const AdminOrders = () => {
       );
     }
     
+    // Add tracking button for shipped orders
+    if (order.status === 'SHIPPED' && !order.trackingNumber) {
+      actions.push(
+        <button
+          key="tracking"
+          onClick={() => {
+            setSelectedOrderForTracking(order);
+            setShowTrackingModal(true);
+          }}
+          className="text-indigo-600 hover:text-indigo-900 text-xs flex items-center"
+        >
+          <Truck className="w-3 h-3 mr-1" />
+          Add Tracking
+        </button>
+      );
+    }
+    
     if (['PENDING', 'PROCESSING'].includes(order.status)) {
       actions.push(
         <button
@@ -386,6 +406,9 @@ const AdminOrders = () => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tracking
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -438,6 +461,19 @@ const AdminOrders = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(order.status)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {order.trackingNumber ? (
+                      <div className="flex items-center">
+                        <Truck className="h-4 w-4 mr-1 text-green-500" />
+                        <span className="text-green-600 font-medium">{order.trackingNumber}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <Truck className="h-4 w-4 mr-1 text-gray-400" />
+                        <span className="text-gray-500">No tracking</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex items-center">
@@ -571,6 +607,17 @@ const AdminOrders = () => {
           </div>
         </div>
       )}
+
+      {/* Tracking Modal */}
+      <TrackingModal
+        isOpen={showTrackingModal}
+        onClose={() => {
+          setShowTrackingModal(false);
+          setSelectedOrderForTracking(null);
+        }}
+        orderId={selectedOrderForTracking?.id}
+        onTrackingUpdated={fetchOrders}
+      />
     </div>
   );
 };

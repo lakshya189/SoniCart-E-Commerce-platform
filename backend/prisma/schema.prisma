@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,60 +8,57 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  firstName String
-  lastName  String
-  role      Role     @default(USER)
-  avatar    String?
-  phone     String?
-  addresses Address[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  orders       Order[]
-  reviews      Review[]
-  cartItems    CartItem[]
-  wishlistItems WishlistItem[]
-  inventoryAlerts InventoryAlert[]
-  stockNotifications StockNotification[]
-  userNotifications UserNotification[]
-  notificationPreferences NotificationPreference[]
+  id                      String                  @id @default(cuid())
+  email                   String                  @unique
+  password                String
+  firstName               String
+  lastName                String
+  role                    Role                    @default(USER)
+  avatar                  String?
+  phone                   String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  addresses               Address[]
+  cartItems               CartItem[]
+  inventoryAlerts         InventoryAlert[]
+  notificationPreferences NotificationPreference?
+  orders                  Order[]
+  reviews                 Review[]
+  stockNotifications      StockNotification[]
+  userNotifications       UserNotification[]
+  wishlistItems           WishlistItem[]
 
   @@map("users")
 }
 
 model Address {
-  id          String  @id @default(cuid())
-  userId      String
-  street      String
-  city        String
-  state       String
-  zipCode     String
-  country     String  @default("US")
-  isDefault   Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  country   String   @default("US")
+  isDefault Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("addresses")
 }
 
 model OrderAddress {
-  id          String  @id @default(cuid())
-  orderId     String
-  street      String
-  city        String
-  state       String
-  zipCode     String
-  country     String  @default("US")
-  type        AddressType
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id        String      @id @default(cuid())
+  orderId   String
+  street    String
+  city      String
+  state     String
+  zipCode   String
+  country   String      @default("US")
+  type      AddressType
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("order_addresses")
 }
@@ -77,105 +71,105 @@ model Category {
   slug        String    @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
-  products Product[]
+  products    Product[]
 
   @@map("categories")
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  price       Decimal  @db.Decimal(10, 2)
-  comparePrice Decimal? @db.Decimal(10, 2)
-  images      String[]
-  categoryId  String
-  stock       Int      @default(0)
-  sku         String?  @unique
-  weight      Float?
-  dimensions  String?
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  category      Category       @relation(fields: [categoryId], references: [id])
-  orderItems    OrderItem[]
-  reviews       Review[]
-  cartItems     CartItem[]
-  wishlistItems WishlistItem[]
-  inventoryAlerts InventoryAlert[]
+  id                 String              @id @default(cuid())
+  name               String
+  description        String
+  price              Decimal             @db.Decimal(10, 2)
+  comparePrice       Decimal?            @db.Decimal(10, 2)
+  images             String[]
+  categoryId         String
+  stock              Int                 @default(0)
+  sku                String?             @unique
+  weight             Float?
+  dimensions         String?
+  isActive           Boolean             @default(true)
+  isFeatured         Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  cartItems          CartItem[]
+  inventoryAlerts    InventoryAlert[]
+  orderItems         OrderItem[]
+  category           Category            @relation(fields: [categoryId], references: [id])
+  reviews            Review[]
   stockNotifications StockNotification[]
+  wishlistItems      WishlistItem[]
 
   @@map("products")
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  userId        String
-  status        OrderStatus @default(PENDING)
-  total         Decimal     @db.Decimal(10, 2)
-  subtotal      Decimal     @db.Decimal(10, 2)
-  tax           Decimal     @db.Decimal(10, 2)
-  shipping      Decimal     @db.Decimal(10, 2)
-  paymentIntentId String?
-  paymentStatus   PaymentStatus @default(PENDING)
-  notes          String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  paymentMethod  String?    // 'card', 'paypal', 'cod'
-  paypalOrderId  String?
-  paypalPayer    String?
-
-  user         User          @relation(fields: [userId], references: [id])
-  orderItems   OrderItem[]
-  addresses    OrderAddress[]
+  id                String         @id @default(cuid())
+  userId            String
+  status            OrderStatus    @default(PENDING)
+  total             Decimal        @db.Decimal(10, 2)
+  subtotal          Decimal        @db.Decimal(10, 2)
+  tax               Decimal        @db.Decimal(10, 2)
+  shipping          Decimal        @db.Decimal(10, 2)
+  paymentIntentId   String?
+  paymentStatus     PaymentStatus  @default(PENDING)
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  paymentMethod     String?
+  paypalOrderId     String?
+  paypalPayer       String?
+  deliveredAt       DateTime?
+  estimatedDelivery DateTime?
+  shippedAt         DateTime?
+  shippingCarrier   String?
+  trackingNumber    String?
+  trackingUrl       String?
+  addresses         OrderAddress[]
+  orderItems        OrderItem[]
+  user              User           @relation(fields: [userId], references: [id])
 
   @@map("orders")
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
   productId String
   quantity  Int
-  price     Decimal @db.Decimal(10, 2)
+  price     Decimal  @db.Decimal(10, 2)
   createdAt DateTime @default(now())
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
 
 model CartItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   productId String
-  quantity  Int     @default(1)
+  quantity  Int      @default(1)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@map("cart_items")
 }
 
 model Review {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
   productId String
   rating    Int
   comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   status    ReviewStatus @default(APPROVED)
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@map("reviews")
@@ -187,75 +181,70 @@ model WishlistItem {
   productId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@map("wishlist_items")
 }
 
 model InventoryAlert {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   productId String
   userId    String?
   type      AlertType
-  threshold Int      // Stock level threshold
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  product Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threshold Int
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("inventory_alerts")
 }
 
 model StockNotification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   productId String
   userId    String
   type      NotificationType
   message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("stock_notifications")
 }
 
 model UserNotification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
   type      NotificationType
   title     String
   message   String
-  data      Json?    // Additional data for the notification
-  isRead    Boolean  @default(false)
-  isEmail   Boolean  @default(false) // Whether email was sent
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json?
+  isRead    Boolean          @default(false)
+  isEmail   Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_notifications")
 }
 
 model NotificationPreference {
-  id                    String @id @default(cuid())
-  userId                String @unique
-  emailNotifications    Boolean @default(true)
-  pushNotifications     Boolean @default(true)
-  orderUpdates          Boolean @default(true)
-  priceDrops            Boolean @default(true)
-  newArrivals           Boolean @default(true)
-  stockAlerts           Boolean @default(true)
-  marketingEmails       Boolean @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  orderUpdates       Boolean  @default(true)
+  priceDrops         Boolean  @default(true)
+  newArrivals        Boolean  @default(true)
+  stockAlerts        Boolean  @default(true)
+  marketingEmails    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
 }

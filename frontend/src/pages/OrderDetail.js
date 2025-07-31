@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import api from '../utils/api';
 import { io } from 'socket.io-client';
 import { useCallback } from 'react';
+import TrackingInfo from '../components/ui/TrackingInfo';
 
 const SOCKET_URL = process.env.REACT_APP_API_URL?.replace(/\/$/, '').replace('http', 'ws') || 'ws://localhost:5000';
 
@@ -316,6 +317,13 @@ const OrderDetail = () => {
                   )}
                 </div>
               </div>
+
+              {/* Tracking Information */}
+              {canTrackOrder && (
+                <div className="mt-6">
+                  <TrackingInfo orderId={order.id} />
+                </div>
+              )}
             </div>
           </div>
         </div>

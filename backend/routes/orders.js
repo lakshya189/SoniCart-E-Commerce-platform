@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const { protect, authorize } = require('../middleware/auth');
 const { io } = require('../server');
 const { sendMail } = require('../utils/mail');
+const TrackingService = require('../utils/trackingService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -449,6 +450,200 @@ router.put('/:id/status', protect, authorize('ADMIN'), [
         message: 'Order not found',
       });
     }
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+});
+
+// @desc    Update order tracking information (Admin only)
+// @route   PUT /api/orders/:id/tracking
+// @access  Private/Admin
+router.put('/:id/tracking', protect, authorize('ADMIN'), [
+  body('trackingNumber').notEmpty().withMessage('Tracking number is required'),
+  body('shippingCarrier').notEmpty().withMessage('Shipping carrier is required'),
+  body('estimatedDelivery').optional().isISO8601().withMessage('Invalid estimated delivery date'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+    const { trackingNumber, shippingCarrier, estimatedDelivery } = req.body;
+
+    // Validate tracking number format
+    if (!TrackingService.validateTrackingNumber(shippingCarrier, trackingNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid tracking number format for the selected carrier',
+      });
+    }
+
+    // Update order tracking
+    const updatedOrder = await TrackingService.updateOrderTracking(id, {
+      trackingNumber,
+      shippingCarrier,
+      estimatedDelivery,
+    });
+
+    // Emit real-time update
+    if (io) {
+      io.emit('orderStatusUpdated', { 
+        orderId: id, 
+        status: 'SHIPPED',
+        trackingNumber,
+        shippingCarrier,
+        trackingUrl: updatedOrder.trackingUrl
+      });
+    }
+
+    // Send shipping notification email
+    try {
+      await sendMail({
+        to: updatedOrder.user.email,
+        subject: `Your Order Has Been Shipped! - SonicArt Order #${id.slice(-8)}`,
+        html: `
+          <h2>Your order has been shipped!</h2>
+          <p>Order #${id.slice(-8)} is now on its way to you.</p>
+          <p><strong>Tracking Number:</strong> ${trackingNumber}</p>
+          <p><strong>Carrier:</strong> ${TrackingService.getCarrierInfo(shippingCarrier)?.name || shippingCarrier}</p>
+          ${updatedOrder.trackingUrl ? `<p><a href="${updatedOrder.trackingUrl}" target="_blank">Track Your Package</a></p>` : ''}
+          ${estimatedDelivery ? `<p><strong>Estimated Delivery:</strong> ${new Date(estimatedDelivery).toLocaleDateString()}</p>` : ''}
+        `,
+      });
+    } catch (emailError) {
+      console.error('Shipping notification email error:', emailError);
+    }
+
+    res.json({
+      success: true,
+      data: updatedOrder,
+      message: 'Order tracking updated successfully',
+    });
+  } catch (error) {
+    console.error('Update tracking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+});
+
+// @desc    Mark order as delivered (Admin only)
+// @route   PUT /api/orders/:id/delivered
+// @access  Private/Admin
+router.put('/:id/delivered', protect, authorize('ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updatedOrder = await TrackingService.markOrderDelivered(id);
+
+    // Emit real-time update
+    if (io) {
+      io.emit('orderStatusUpdated', { 
+        orderId: id, 
+        status: 'DELIVERED',
+        deliveredAt: updatedOrder.deliveredAt
+      });
+    }
+
+    // Send delivery notification email
+    try {
+      await sendMail({
+        to: updatedOrder.user.email,
+        subject: `Your Order Has Been Delivered! - SonicArt Order #${id.slice(-8)}`,
+        html: `
+          <h2>Your order has been delivered!</h2>
+          <p>Order #${id.slice(-8)} has been successfully delivered.</p>
+          <p>Thank you for shopping with SonicArt!</p>
+        `,
+      });
+    } catch (emailError) {
+      console.error('Delivery notification email error:', emailError);
+    }
+
+    res.json({
+      success: true,
+      data: updatedOrder,
+      message: 'Order marked as delivered',
+    });
+  } catch (error) {
+    console.error('Mark delivered error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+});
+
+// @desc    Get order tracking information
+// @route   GET /api/orders/:id/tracking
+// @access  Private
+router.get('/:id/tracking', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user owns this order or is admin
+    const order = await prisma.order.findUnique({
+      where: { id },
+      select: { userId: true }
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found',
+      });
+    }
+
+    if (order.userId !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this order',
+      });
+    }
+
+    const trackingInfo = await TrackingService.getOrderTracking(id);
+
+    if (!trackingInfo) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: trackingInfo,
+    });
+  } catch (error) {
+    console.error('Get tracking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+});
+
+// @desc    Get supported shipping carriers
+// @route   GET /api/orders/carriers
+// @access  Private/Admin
+router.get('/carriers', protect, authorize('ADMIN'), async (req, res) => {
+  try {
+    const carriers = TrackingService.getSupportedCarriers();
+    
+    res.json({
+      success: true,
+      data: carriers,
+    });
+  } catch (error) {
+    console.error('Get carriers error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
