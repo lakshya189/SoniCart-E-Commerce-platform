@@ -4,9 +4,13 @@ import React from 'react';
 const CategoryIcons = {
   electronics: (
     <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z" fill="currentColor"/>
-      <path d="M19 14L20 18L16 17L15 21L14 17L10 18L11 14L8 12L11 10L10 6L14 7L15 3L16 7L20 6L19 10L22 12L19 14Z" fill="currentColor"/>
-      <circle cx="12" cy="12" r="2" fill="currentColor"/>
+      {/* Smartphone/Device */}
+      <rect x="6" y="2" width="12" height="20" rx="2" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <rect x="8" y="4" width="8" height="12" rx="1" fill="currentColor"/>
+      <circle cx="12" cy="18" r="1" fill="currentColor"/>
+      {/* Signal/Wifi waves */}
+      <path d="M2 8C3 7 5 6 8 6C11 6 13 7 14 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M2 12C4 11 7 10 11 10C15 10 18 11 20 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/>
     </svg>
   ),
   

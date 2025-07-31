@@ -142,23 +142,27 @@ const Home = () => {
       </section>
 
       {/* Categories Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            className="text-center mb-16"
           >
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Shop by Category</h2>
-            <p className="text-lg text-gray-600">Find exactly what you're looking for</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+              Shop by Category
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Discover our curated collections designed to enhance your lifestyle
+            </p>
           </motion.div>
 
           <CategoryGrid
             categories={categories}
             loading={categoriesLoading}
-            gridCols="grid-cols-2 md:grid-cols-4"
-            gap="gap-6"
+            gridCols="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            gap="gap-8"
             showImage={true}
             showProductCount={true}
           />
