@@ -1,4 +1,6 @@
-# 🛒 SoniCart E-Commerce Platform
+# 🛒 SoniCart E-Commerce Platform 
+
+To Check this product live click on the link: https://sonicart-e-commerce-platform-1.onrender.com
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js-green.svg)](https://nodejs.org/)
